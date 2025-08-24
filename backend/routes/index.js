@@ -12,7 +12,7 @@ const studentController = require('../controllers/studentController');
 const roomController = require('../controllers/roomController');
 const bookingController = require('../controllers/bookingController');
 const settingsController = require('../controllers/settingsController');
-const superAdminController = require('../controllers/superadmincontroller');
+const superAdminController = require('../controllers/superAdminController');
 const contactController = require('../controllers/contactController');
 
 const router = express.Router();
