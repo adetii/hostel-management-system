@@ -1,0 +1,546 @@
+Avoid large layout shifts 2 layout shifts found
+These are the largest layout shifts observed on the page. Each table item represents a single layout shift, and shows the element that shifted the most. Below each item are possible root causes that led to the layout shift. Some of these layout shifts may not be included in the CLS metric value due to windowing. Learn how to improve CLSCLS
+Element
+Layout shift score
+footer.relative.bg-gradient-to-br.from-gray-900.via-gray-800.to-gray-900.text-white.overflow-hidden
+0.267
+body
+0.011
+Enable text compression Est savings of 3,901 KiB
+Text-based resources should be served with compression (gzip, deflate or brotli) to minimize total network bytes. Learn more about text compression.FCPLCP
+URL
+Transfer Size
+Est Savings
+localhost 1st party
+5,086.8 KiB	3,900.8 KiB
+…deps/react-icons_fa.js?v=86180e5a(localhost)
+1,356.5 KiB
+928.5 KiB
+…deps/chunk-WRD5HZVH.js?v=6efc9850(localhost)
+906.3 KiB
+766.9 KiB
+…deps/@heroicons_react_24_outline.js?v=9088bebe(localhost)
+342.5 KiB
+297.8 KiB
+…deps/framer-motion.js?v=b4776376(localhost)
+314.0 KiB
+241.0 KiB
+…deps/react-router-dom.js?v=9250bfe4(localhost)
+203.9 KiB
+160.3 KiB
+/src/index.css?t=175…(localhost)
+149.3 KiB
+129.7 KiB
+…auth/Register.tsx(localhost)
+136.6 KiB
+111.2 KiB
+/@vite/client(localhost)
+134.5 KiB
+107.6 KiB
+…deps/@reduxjs_toolkit.js?v=73548b12(localhost)
+122.7 KiB
+93.7 KiB
+/@react-refresh(localhost)
+114.8 KiB
+90.9 KiB
+…deps/socket__io-client.js?v=e949079e(localhost)
+90.4 KiB
+69.3 KiB
+/src/App.tsx?t=175…(localhost)
+78.2 KiB
+65.8 KiB
+…deps/chunk-OU5AQDZK.js?v=6efc9850(localhost)
+76.0 KiB
+60.3 KiB
+…deps/axios.js?v=c85f8f34(localhost)
+79.4 KiB
+58.5 KiB
+…auth/Login.tsx(localhost)
+55.9 KiB
+43.2 KiB
+…layout/Navbar.tsx(localhost)
+53.8 KiB
+41.2 KiB
+…home/Testimonials.jsx(localhost)
+54.8 KiB
+40.3 KiB
+…home/CTA.jsx(localhost)
+47.3 KiB
+36.5 KiB
+…public/Footer.jsx(localhost)
+46.1 KiB
+35.2 KiB
+…layout/Navbar.jsx(localhost)
+43.9 KiB
+33.8 KiB
+…deps/react-redux.js?v=73548b12(localhost)
+39.2 KiB
+30.2 KiB
+…client/env.mjs(localhost)
+35.9 KiB
+28.4 KiB
+…home/Stats.jsx(localhost)
+39.3 KiB
+28.3 KiB
+…deps/react_jsx-dev-runtime.js?v=73548b12(localhost)
+36.2 KiB
+28.3 KiB
+…layout/Sidebar.tsx(localhost)
+37.2 KiB
+27.5 KiB
+…slices/authSlice.ts(localhost)
+31.6 KiB
+24.3 KiB
+…deps/react-helmet-async.js?v=1dbb8790(localhost)
+32.2 KiB
+24.2 KiB
+…slices/studentSlice.ts(localhost)
+29.5 KiB
+22.6 KiB
+…home/Hero.jsx?t=175…(localhost)
+30.5 KiB
+21.5 KiB
+…shared/ProtectedRoute.tsx(localhost)
+27.4 KiB
+21.4 KiB
+…slices/roomSlice.ts(localhost)
+26.4 KiB
+20.3 KiB
+…api/config.ts(localhost)
+29.2 KiB
+19.4 KiB
+…home/Amenities.jsx(localhost)
+27.1 KiB
+18.9 KiB
+…slices/bookingSlice.ts(localhost)
+24.6 KiB
+18.5 KiB
+…ui/InlineIcons.tsx(localhost)
+21.7 KiB
+16.6 KiB
+…deps/uuid.js?v=cc45b284(localhost)
+19.3 KiB
+14.3 KiB
+…management/NotFound.tsx(localhost)
+18.8 KiB
+13.2 KiB
+…contexts/SocketContext.tsx(localhost)
+18.9 KiB
+12.1 KiB
+…public/Home.tsx?t=175…(localhost)
+18.1 KiB
+12.0 KiB
+…deps/react-hot-toast.js?v=12c23e97(localhost)
+16.3 KiB
+10.8 KiB
+…slices/settingsSlice.ts(localhost)
+14.6 KiB
+10.5 KiB
+…layout/SuperAdminSidebar.tsx(localhost)
+14.8 KiB
+9.7 KiB
+…layout/Breadcrumb.tsx(localhost)
+13.2 KiB
+8.3 KiB
+…components/SEO.tsx(localhost)
+12.0 KiB
+7.7 KiB
+…layout/StudentLayout.tsx(localhost)
+10.5 KiB
+6.9 KiB
+…layout/AdminLayout.tsx(localhost)
+10.3 KiB
+6.9 KiB
+…public/ScrollToTop.tsx(localhost)
+7.9 KiB
+4.6 KiB
+…layout/Layout.tsx(localhost)
+6.9 KiB
+4.3 KiB
+…layouts/PublicLayout.tsx(localhost)
+6.5 KiB
+4.3 KiB
+…public/ScrollToTopOnRouteChange.tsx(localhost)
+4.7 KiB
+2.6 KiB
+/src/main.jsx?t=175…(localhost)
+4.7 KiB
+2.5 KiB
+…layout/PageHeader.tsx(localhost)
+4.2 KiB
+2.4 KiB
+…layout/AuthLayout.tsx(localhost)
+4.1 KiB
+2.3 KiB
+http://localhost:5173
+3.1 KiB
+1.9 KiB
+…utils/tabId.ts(localhost)
+2.8 KiB
+1.4 KiB
+Largest Contentful Paint element 6,070 ms
+This is the largest contentful element painted within the viewport. Learn more about the Largest Contentful Paint elementLCP
+Element
+University Hostel Exterior
+<img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&amp;a…" srcset="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&amp;a…" sizes="(max-width: 640px) 640px, (max-width: 1280px) 1280px, 1920px" alt="University Hostel Exterior" width="1920" height="1080" class="w-full h-full object-cover animate-hero-zoom" loading="eager" fetchpriority="high" decoding="async">
+Phase
+% of LCP
+Timing
+TTFB
+2%
+140 ms
+Load Delay
+34%
+2,040 ms
+Load Time
+29%
+1,770 ms
+Render Delay
+35%
+2,120 ms
+Minify JavaScript Est savings of 1,633 KiB
+Minifying JavaScript files can reduce payload sizes and script parse time. Learn how to minify JavaScript.FCPLCP
+URL
+Transfer Size
+Est Savings
+localhost 1st party
+3,569.7 KiB	1,608.1 KiB
+…deps/chunk-WRD5HZVH.js?v=6efc9850(localhost)
+906.3 KiB
+331.7 KiB
+/@vite/client(localhost)
+134.5 KiB
+117.0 KiB
+/@react-refresh(localhost)
+114.8 KiB
+104.6 KiB
+…auth/Register.tsx(localhost)
+136.6 KiB
+92.0 KiB
+…deps/framer-motion.js?v=b4776376(localhost)
+314.0 KiB
+90.0 KiB
+…deps/@heroicons_react_24_outline.js?v=9088bebe(localhost)
+342.5 KiB
+64.8 KiB
+/src/App.tsx?t=175…(localhost)
+78.2 KiB
+48.3 KiB
+…deps/react-router-dom.js?v=9250bfe4(localhost)
+203.9 KiB
+48.0 KiB
+…home/Testimonials.jsx(localhost)
+54.8 KiB
+38.1 KiB
+…deps/socket__io-client.js?v=e949079e(localhost)
+90.4 KiB
+36.0 KiB
+…auth/Login.tsx(localhost)
+55.9 KiB
+35.8 KiB
+…layout/Navbar.tsx(localhost)
+53.8 KiB
+35.2 KiB
+…public/Footer.jsx(localhost)
+46.1 KiB
+31.1 KiB
+…deps/chunk-OU5AQDZK.js?v=6efc9850(localhost)
+76.0 KiB
+31.0 KiB
+…layout/Navbar.jsx(localhost)
+43.9 KiB
+30.9 KiB
+…home/CTA.jsx(localhost)
+47.3 KiB
+30.7 KiB
+…client/env.mjs(localhost)
+35.9 KiB
+29.5 KiB
+…deps/@reduxjs_toolkit.js?v=73548b12(localhost)
+122.7 KiB
+29.2 KiB
+…home/Stats.jsx(localhost)
+39.3 KiB
+26.9 KiB
+…slices/authSlice.ts(localhost)
+31.6 KiB
+25.0 KiB
+…layout/Sidebar.tsx(localhost)
+37.2 KiB
+24.2 KiB
+…slices/studentSlice.ts(localhost)
+29.5 KiB
+23.0 KiB
+…api/config.ts(localhost)
+29.2 KiB
+22.5 KiB
+…slices/roomSlice.ts(localhost)
+26.4 KiB
+20.8 KiB
+…deps/axios.js?v=c85f8f34(localhost)
+79.4 KiB
+20.4 KiB
+…slices/bookingSlice.ts(localhost)
+24.6 KiB
+19.4 KiB
+…home/Hero.jsx?t=175…(localhost)
+30.5 KiB
+18.6 KiB
+…home/Amenities.jsx(localhost)
+27.1 KiB
+16.6 KiB
+…shared/ProtectedRoute.tsx(localhost)
+27.4 KiB
+15.9 KiB
+…deps/react_jsx-dev-runtime.js?v=73548b12(localhost)
+36.2 KiB
+14.0 KiB
+…contexts/SocketContext.tsx(localhost)
+18.9 KiB
+13.2 KiB
+…ui/InlineIcons.tsx(localhost)
+21.7 KiB
+12.2 KiB
+…slices/settingsSlice.ts(localhost)
+14.6 KiB
+11.3 KiB
+…management/NotFound.tsx(localhost)
+18.8 KiB
+10.6 KiB
+…public/Home.tsx?t=175…(localhost)
+18.1 KiB
+10.1 KiB
+…deps/react-redux.js?v=73548b12(localhost)
+39.2 KiB
+9.8 KiB
+…layout/SuperAdminSidebar.tsx(localhost)
+14.8 KiB
+9.0 KiB
+…layout/Breadcrumb.tsx(localhost)
+13.2 KiB
+8.3 KiB
+…deps/react-helmet-async.js?v=1dbb8790(localhost)
+32.2 KiB
+7.8 KiB
+…components/SEO.tsx(localhost)
+12.0 KiB
+6.9 KiB
+…layout/StudentLayout.tsx(localhost)
+10.5 KiB
+5.6 KiB
+…layout/AdminLayout.tsx(localhost)
+10.3 KiB
+5.5 KiB
+…deps/uuid.js?v=cc45b284(localhost)
+19.3 KiB
+5.2 KiB
+…public/ScrollToTop.tsx(localhost)
+7.9 KiB
+4.6 KiB
+…layout/Layout.tsx(localhost)
+6.9 KiB
+3.6 KiB
+…deps/react-hot-toast.js?v=12c23e97(localhost)
+16.3 KiB
+3.1 KiB
+…layouts/PublicLayout.tsx(localhost)
+6.5 KiB
+2.9 KiB
+/src/main.jsx?t=175…(localhost)
+4.7 KiB
+2.7 KiB
+…public/ScrollToTopOnRouteChange.tsx(localhost)
+4.7 KiB
+2.4 KiB
+…utils/tabId.ts(localhost)
+2.8 KiB
+2.2 KiB
+Unattributable
+57.6 KiB	24.5 KiB
+chrome-extension://fmkadmapgofadopljbjfkapdkoienihi/build/react_devtools_backend_compact.js
+57.6 KiB
+24.5 KiB
+Reduce unused JavaScript Est savings of 2,640 KiB
+Preconnect to required origins Est savings of 530 ms
+Warnings: A `<link rel=preconnect>` was found for "https://images.unsplash.com" but was not used by the browser. Check that you are using the `crossorigin` attribute properly.
+Minimize main-thread work 2.4 s
+Page prevented back/forward cache restoration 1 failure reason
+Many navigations are performed by going back to a previous page, or forwards again. The back/forward cache (bfcache) can speed up these return navigations. Learn more about the bfcache
+Failure reason
+Failure type
+Pages with WebSocket cannot enter back/forward cache.
+Pending browser support
+http://localhost:5173
+Reduce unused CSS Est savings of 22 KiB
+Reduce unused rules from stylesheets and defer CSS not used for above-the-fold content to decrease bytes consumed by network activity. Learn how to reduce unused CSS.FCPLCP
+URL
+Transfer Size
+Est Savings
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Pop…
+28.3 KiB
+22.1 KiB
+Avoid enormous network payloads Total size was 6,087 KiB
+Avoid long main-thread tasks 4 long tasks found
+Lists the longest tasks on the main thread, useful for identifying worst contributors to input delay. Learn how to avoid long main-thread tasksTBT
+URL
+Start Time
+Duration
+localhost 1st party
+213 ms
+…deps/chunk-WRD5HZVH.js?v=6efc9850(localhost)
+4,891 ms
+104 ms
+…deps/react-hot-toast.js?v=12c23e97(localhost)
+1,372 ms
+55 ms
+http://localhost:5173
+180 ms
+54 ms
+Unattributable
+127 ms
+Unattributable
+287 ms
+127 ms
+User Timing marks and measures 2 user timings
+Consider instrumenting your app with the User Timing API to measure your app's real-world performance during key user experiences. Learn more about User Timing marks.
+Name
+Type
+Start Time
+Duration
+__v3
+Mark
+0.00 ms
+clearMarks
+Mark
+100.07 ms
+Avoid chaining critical requests 44 chains found
+The Critical Request Chains below show you what resources are loaded with a high priority. Consider reducing the length of chains, reducing the download size of resources, or deferring the download of unnecessary resources to improve page load. Learn how to avoid chaining critical requests.
+Maximum critical path latency: 832.48 ms
+Initial Navigation
+http://localhost:5173
+/@react-refresh(localhost) - 50.011 ms, 115.08 KiB
+/manifest.json(localhost) - 3.775 ms, 0.97 KiB
+/@vite/client(localhost)
+…client/env.mjs(localhost) - 40.271 ms, 36.22 KiB
+/src/main.jsx?t=175…(localhost)
+…deps/react_jsx-dev-runtime.js?v=73548b12(localhost)
+…deps/chunk-OU5AQDZK.js?v=6efc9850(localhost) - 39.791 ms, 76.30 KiB
+…deps/chunk-EWTE5DHJ.js?v=6efc9850(localhost) - 27.561 ms, 2.32 KiB
+…deps/react.js?v=73548b12(localhost) - 33.846 ms, 0.51 KiB
+…deps/react-dom_client.js?v=fc8a2113(localhost)
+…deps/chunk-WRD5HZVH.js?v=6efc9850(localhost) - 37.481 ms, 906.65 KiB
+/src/App.tsx?t=175…(localhost)
+…deps/react-router-dom.js?v=9250bfe4(localhost) - 22.187 ms, 204.21 KiB
+…deps/react-redux.js?v=73548b12(localhost) - 28.666 ms, 39.55 KiB
+…store/index.ts(localhost)
+…deps/@reduxjs_toolkit.js?v=73548b12(localhost) - 53.019 ms, 122.98 KiB
+…slices/roomSlice.ts(localhost)
+…utils/toastUtils.ts(localhost) - 74.365 ms, 2.48 KiB
+…slices/studentSlice.ts(localhost) - 59.496 ms, 29.79 KiB
+…slices/settingsSlice.ts(localhost) - 62.538 ms, 14.86 KiB
+…slices/bookingSlice.ts(localhost) - 67.033 ms, 24.88 KiB
+…hooks/useAppDispatch.ts(localhost) - 29.908 ms, 0.86 KiB
+…deps/react-hot-toast.js?v=12c23e97(localhost) - 26.566 ms, 16.62 KiB
+…slices/authSlice.ts(localhost)
+…api/config.ts(localhost)
+…deps/axios.js?v=c85f8f34(localhost) - 66.389 ms, 79.72 KiB
+…utils/csrf.ts(localhost) - 63.505 ms, 1.14 KiB
+…public/ScrollToTop.tsx(localhost)
+…deps/framer-motion.js?v=b4776376(localhost) - 67.98 ms, 314.32 KiB
+…ui/InlineIcons.tsx(localhost) - 64.762 ms, 22.02 KiB
+…public/ScrollToTopOnRouteChange.tsx(localhost) - 36.652 ms, 4.99 KiB
+…utils/tabId.ts(localhost)
+…deps/uuid.js?v=cc45b284(localhost) - 65.368 ms, 19.57 KiB
+…layouts/PublicLayout.tsx(localhost)
+…layout/Navbar.jsx(localhost)
+…deps/react-icons_fa.js?v=86180e5a(localhost) - 71.035 ms, 1,356.84 KiB
+…public/Footer.jsx(localhost) - 65.904 ms, 46.38 KiB
+…public/Home.tsx?t=175…(localhost)
+…components/SEO.tsx(localhost) - 87.185 ms, 12.28 KiB
+…home/Hero.jsx?t=175…(localhost) - 5.731 ms, 30.82 KiB
+…home/Stats.jsx(localhost) - 7.846 ms, 39.56 KiB
+…home/Amenities.jsx(localhost) - 9.909 ms, 27.34 KiB
+…home/Testimonials.jsx(localhost) - 11.484 ms, 55.13 KiB
+…home/CTA.jsx(localhost) - 26.24 ms, 47.63 KiB
+…layout/index.ts(localhost)
+…layout/AuthLayout.tsx(localhost) - 69.392 ms, 4.34 KiB
+…layout/StudentLayout.tsx(localhost)
+…contexts/SocketContext.tsx(localhost)
+…deps/socket__io-client.js?v=e949079e(localhost) - 23.817 ms, 90.74 KiB
+…layout/AdminLayout.tsx(localhost) - 70.305 ms, 10.61 KiB
+…layout/Navbar.tsx(localhost) - 76.505 ms, 54.08 KiB
+…layout/Sidebar.tsx(localhost)
+…layout/SuperAdminSidebar.tsx(localhost) - 43.125 ms, 15.13 KiB
+…layout/Layout.tsx(localhost) - 82.231 ms, 7.20 KiB
+…layout/PageHeader.tsx(localhost) - 84.423 ms, 4.47 KiB
+…layout/Breadcrumb.tsx(localhost) - 86.608 ms, 13.46 KiB
+…shared/ProtectedRoute.tsx(localhost) - 53.119 ms, 27.70 KiB
+…auth/Login.tsx(localhost)
+…deps/@heroicons_react_24_outline.js?v=9088bebe(localhost) - 90.107 ms, 342.79 KiB
+…auth/Register.tsx(localhost) - 69.48 ms, 136.89 KiB
+…management/NotFound.tsx(localhost) - 65.269 ms, 19.07 KiB
+/src/index.css?t=175…(localhost) - 42.286 ms, 149.62 KiB
+…deps/react-helmet-async.js?v=1dbb8790(localhost) - 46.472 ms, 32.49 KiB
+Minimize third-party usage Third-party code blocked the main thread for 0 ms
+Third-party code can significantly impact load performance. Limit the number of redundant third-party providers and try to load third-party code after your page has primarily finished loading. Learn how to minimize third-party impact.TBT
+Third-Party
+Transfer Size
+Main-Thread Blocking Time
+unsplash.com
+881 KiB	0 ms
+/photo-158…-27b2c045efd7?ixlib=…(images.unsplash.com)
+204 KiB
+0 ms
+/photo-163…-da0ec9d70304?ixlib=…(images.unsplash.com)
+192 KiB
+0 ms
+/photo-155…-bab0e564b8d5?ixlib=…(images.unsplash.com)
+184 KiB
+0 ms
+/photo-155…-bab0e564b8d5?ixlib=…(images.unsplash.com)
+158 KiB
+0 ms
+/photo-156…-b33ff0c44a43?ixlib=…(images.unsplash.com)
+143 KiB
+0 ms
+Google Fonts cdn 
+64 KiB	0 ms
+…v19/UcC73FwrK….woff2(fonts.gstatic.com)
+47 KiB
+0 ms
+…v23/pxiByp8kv….woff2(fonts.gstatic.com)
+8 KiB
+0 ms
+…v23/pxiByp8kv….woff2(fonts.gstatic.com)
+8 KiB
+0 ms
+/css2?family=…(fonts.googleapis.com)
+2 KiB
+0 ms
+More information about the performance of your application. These numbers don't directly affect the Performance score.
+Passed audits (24)
+Hide
+Eliminate render-blocking resources
+Properly size images
+Defer offscreen images
+Minify CSS
+Efficiently encode images
+Serve images in next-gen formats
+Initial server response time was short Root document took 10 ms
+Avoid multiple page redirects
+Use HTTP/2
+Use video formats for animated content
+Remove duplicate modules in JavaScript bundles
+Avoid serving legacy JavaScript to modern browsers
+Preload Largest Contentful Paint image
+Uses efficient cache policy on static assets 0 resources found
+Avoids an excessive DOM size 474 elements
+JavaScript execution time 0.8 s
+All text remains visible during webfont loads
+Lazy load third-party resources with facades
+Largest Contentful Paint image was not lazily loaded
+Uses passive listeners to improve scrolling performance
+Avoids document.write()
+Avoid non-composited animations
+Image elements have explicit width and height
+Has a <meta name="viewport"> tag with width or initial-scale
