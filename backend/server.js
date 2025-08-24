@@ -120,7 +120,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Optional: make io accessible via app if you want to notify session events
+// make io accessible via app if you want to notify session events
 app.set('io', io);
 
 // Initialize portal scheduler
