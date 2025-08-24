@@ -52,16 +52,18 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Added unsafe-inline for inline scripts
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Added Google Fonts
+      styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Explicit style-src-elem
       imgSrc: ["'self'", "data:", "blob:", "https:"],
-      fontSrc: ["'self'", "data:"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"], // Added Google Fonts
       connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173', "ws:", "wss:"],
-      frameSrc: ["'self'", "://www.google.com", "https://*.google.com", "https://*.gstatic.com"],
+      frameSrc: ["'self'", "https://www.google.com", "https://*.google.com", "https://*.gstatic.com"], // Fixed protocol
     }
   }
 }));
 
+// 3) CSRF configuration 
 app.use(express.json());
 app.use(cookieParser());
 app.use(compression());
@@ -71,14 +73,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'X-CSRF-Token'], // Remove Authorization header
 }));
 
-// Logging
+// 4) Logging
 if (process.env.NODE_ENV === 'production') {
   app.use(morgan('combined'));
 } else {
   app.use(morgan('dev'));
 }
 
-// Rate limiter for auth routes
+// 5) Rate limiter for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5,
@@ -89,16 +91,16 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 
-// 3) Test DB connection
+// 6) Test DB connection
 testConnection();
 
-// Initialize Redis
+// 7) Initialize Redis
 initRedis().catch((e) => {
   console.error('Failed to initialize Redis:', e);
   process.exit(1);
 });
 
-// 4) HTTP & Socket.IO setup
+// 8) HTTP & Socket.IO setup
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: corsOptions
@@ -123,18 +125,18 @@ io.on('connection', (socket) => {
 // make io accessible via app if you want to notify session events
 app.set('io', io);
 
-// Initialize portal scheduler
+// 9) Initialize portal scheduler
 const portalScheduler = new PortalScheduler(io);
 app.set('portalScheduler', portalScheduler);
 
-// 5) Routes
+// 10) Routes
 app.use('/api', routes);
 
 app.get('/api/health', (req, res) => {
   res.json({ message: 'Hostel Management System API', status: 'ok' });
 });
 
-// Serve static assets (JS/CSS/images) from the built SPA
+// 11) Serve static assets (JS/CSS/images) from the built SPA
 const frontendDist = path.resolve(__dirname, '..', 'frontend', 'dist');
 app.use(
   express.static(frontendDist, {
@@ -143,11 +145,11 @@ app.use(
   })
 );
 
-// SPA fallback: only for GET requests and not for API or Socket.IO routes
+// 12) SPA fallback: only for GET requests and not for API or Socket.IO routes
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
 
-  // serve index.html (do not cache index.html aggressively)
+  // 13) serve index.html (do not cache index.html aggressively)
   res.sendFile(path.join(frontendDist, 'index.html'), {
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -157,19 +159,19 @@ app.get('*', (req, res, next) => {
   });
 });
 
-// After app.use('/api', routes); and before the SPA/static catch-all and 404 handlers:
+// 14) After app.use('/api', routes); and before the SPA/static catch-all and 404 handlers:
 app.get('/robots.txt', (req, res) => {
   const baseUrl = process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
   res.type('text/plain').send(
-`User-agent: *
-Allow: /
-Disallow: /api
-Disallow: /management
-Sitemap: ${baseUrl}/sitemap.xml`
-  );
+  `User-agent: *
+  Allow: /
+  Disallow: /api
+  Disallow: /management
+  Sitemap: ${baseUrl}/sitemap.xml`
+    );
 });
 
-// Dynamic sitemap of public pages
+// 15) Dynamic sitemap of public pages
 app.get('/sitemap.xml', (req, res) => {
   const baseUrl = process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
   const urls = [
@@ -184,32 +186,33 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: '/rules', priority: 0.5, changefreq: 'yearly' },
   ];
 
-  const lastmod = new Date().toISOString();
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  // 16) SEO configuration
+const lastmod = new Date().toISOString();
+const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map(u => `
-  <url>
-    <loc>${baseUrl}${u.loc}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>${u.changefreq}</changefreq>
-    <priority>${u.priority}</priority>
-  </url>`).join('')}
+  ${urls.map(u => `
+    <url>
+      <loc>${baseUrl}${u.loc}</loc>
+      <lastmod>${lastmod}</lastmod>
+      <changefreq>${u.changefreq}</changefreq>
+      <priority>${u.priority}</priority>
+    </url>`).join('')}
 </urlset>`;
-  res.type('application/xml').send(xml);
+    res.type('application/xml').send(xml);
 });
 
-// 404 handler
+// 17) 404 handler
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Route not found' });
 });
 
-// Error handler
+// 18) Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({ status: 'error', message: err.message || 'Internal Server Error' });
 });
 
-// 7) Start server
+// 19) Start server
 const PORT = process.env.PORT || 5500;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

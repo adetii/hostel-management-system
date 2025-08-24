@@ -1,3 +1,22 @@
-# https://www.robotstxt.org/robotstxt.html
+# robots.txt for Elite Hostel System
 User-agent: *
-Disallow:
+Allow: /
+Allow: /robots.txt
+Allow: /sitemap.xml
+
+# Block admin and management areas
+Disallow: /admin/
+Disallow: /management/
+Disallow: /api/auth/
+Disallow: /api/admin/
+Disallow: /uploads/private/
+
+# Block sensitive API endpoints but allow public ones
+Disallow: /api/*/admin
+Disallow: /api/*/private
+
+# Allow public API endpoints (if you want them indexed)
+Allow: /api/health
+Allow: /api/public/
+
+Sitemap: https://elitehostelsystem.up.railway.app/sitemap.xml

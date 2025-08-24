@@ -60,6 +60,16 @@ const Hero = () => {
 
   const currentImage = heroImages[currentImageIndex];
 
+  // Build responsive URLs from Unsplash by replacing the width/quality query
+  const buildSrc = (url, w, q = 70) =>
+    url
+      .replace(/([?&])w=\d+/i, `$1w=${w}`)
+      .replace(/([?&])q=\d+/i, `$1q=${q}`);
+
+  const src640 = buildSrc(currentImage.url, 640);
+  const src1280 = buildSrc(currentImage.url, 1280);
+  const src1920 = buildSrc(currentImage.url, 1920);
+
   return (
     <section ref={heroRef} className="relative h-screen flex items-center overflow-hidden bg-gray-900">
       {/* Background Images with CSS Animation */}
@@ -68,10 +78,16 @@ const Hero = () => {
           {imagesLoaded[currentImageIndex] && (
             <img
               key={currentImageIndex}
-              src={currentImage.url}
+              src={src1280}
+              srcSet={`${src640} 640w, ${src1280} 1280w, ${src1920} 1920w`}
+              sizes="(max-width: 640px) 640px, (max-width: 1280px) 1280px, 1920px"
               alt={currentImage.alt}
+              width="1920"
+              height="1080"
               className="w-full h-full object-cover animate-hero-zoom"
               loading="eager"
+              fetchpriority="high"
+              decoding="async"
             />
           )}
         </div>
