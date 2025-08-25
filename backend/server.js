@@ -75,9 +75,9 @@ app.use(cors({
 
 // 4) Logging
 if (process.env.NODE_ENV === 'production') {
-  app.use(morgan('combined'));
-} else {
   app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
 }
 
 // 5) Rate limiter for auth routes
@@ -86,10 +86,14 @@ const authLimiter = rateLimit({
   max: 5,
   message: 'Too many requests, please try again later.'
 });
+// Apply rate limiting to both old and new auth routes
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
+// Add rate limiting for tab-based auth routes
+app.use('/api/tab/*/auth/login', authLimiter);
+app.use('/api/tab/*/auth/register', authLimiter);
 
 // 6) Test DB connection
 testConnection();

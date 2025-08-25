@@ -168,6 +168,12 @@ exports.login = async (req, res) => {
     }
 
     if (!user) {
+      // Clear any existing cookies to avoid stale sessions after a failed login
+      const tabPath = req.tabId ? `/api/tab/${req.tabId}/` : '/';
+      res.clearCookie(getCookieName(req.tabId), { path: tabPath });
+      res.clearCookie(process.env.SESSION_COOKIE_NAME, { path: '/' });
+      res.clearCookie(`${CSRF_COOKIE_NAME}_${req.tabId || 'default'}`, { path: tabPath });
+      res.clearCookie(`${CSRF_COOKIE_NAME}_default`, { path: '/' });
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -177,6 +183,12 @@ exports.login = async (req, res) => {
 
     const isMatch = await user.checkPassword(password);
     if (!isMatch) {
+      // Clear any existing cookies to avoid stale sessions after a failed login
+      const tabPath = req.tabId ? `/api/tab/${req.tabId}/` : '/';
+      res.clearCookie(getCookieName(req.tabId), { path: tabPath });
+      res.clearCookie(process.env.SESSION_COOKIE_NAME, { path: '/' });
+      res.clearCookie(`${CSRF_COOKIE_NAME}_${req.tabId || 'default'}`, { path: tabPath });
+      res.clearCookie(`${CSRF_COOKIE_NAME}_default`, { path: '/' });
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -270,18 +282,19 @@ exports.getCsrfToken = async (req, res) => {
   }
 };
 
+// In exports.logout
 exports.logout = async (req, res) => {
   try {
     const cookieName = getCookieName(req.tabId);
-    const sessionId = req.cookies?.[cookieName];
-    
-    if (sessionId) {
-      await deleteSession(sessionId);
-    }
+    const tabPath = req.tabId ? `/api/tab/${req.tabId}/` : '/';
 
-    // Clear cookies
-    res.clearCookie(cookieName);
-    res.clearCookie(`${CSRF_COOKIE_NAME}_${req.tabId || 'default'}`);
+    // Clear tab-scoped cookies
+    res.clearCookie(cookieName, { path: tabPath });
+    res.clearCookie(`${CSRF_COOKIE_NAME}_${req.tabId || 'default'}`, { path: tabPath });
+
+    // Also clear global (non-tab) cookies if present
+    res.clearCookie(process.env.SESSION_COOKIE_NAME, { path: '/' });
+    res.clearCookie(`${CSRF_COOKIE_NAME}_default`, { path: '/' });
 
     res.json({ message: 'Logged out successfully' });
   } catch (error) {

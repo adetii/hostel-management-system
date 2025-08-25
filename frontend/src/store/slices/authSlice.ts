@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { toast } from 'react-hot-toast';
-import api, { publicApi } from '../../api/config';
+import api from '../../api/config';
 import { setCsrfToken, clearCsrfToken } from '@/utils/csrf';
 
 interface User {
@@ -146,7 +146,7 @@ export const forgotPassword = createAsyncThunk(
   'auth/forgotPassword',
   async (email: string, { rejectWithValue }) => {
     try {
-      const res = await publicApi.post('/auth/forgot-password', { email });
+      const res = await api.post('/auth/forgot-password', { email });
       return res.data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data || { message: 'Failed to send reset email' });
@@ -159,7 +159,7 @@ export const resetPassword = createAsyncThunk(
   'auth/resetPassword',
   async ({ token, password }: { token: string; password: string }, { rejectWithValue }) => {
     try {
-      const res = await publicApi.post('/auth/reset-password', { token, newPassword: password });
+      const res = await api.post('/auth/reset-password', { token, newPassword: password });
       return res.data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data || { message: 'Failed to reset password' });

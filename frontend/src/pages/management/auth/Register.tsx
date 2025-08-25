@@ -277,8 +277,7 @@ const Register: React.FC = () => {
     
     try {
       await dispatch(register({ ...formData, role: 'student' })).unwrap();
-      toast.success('Account created successfully!');
-      navigate('/');
+      navigate('/management/login')
     } catch (error: any) {
       
     }
