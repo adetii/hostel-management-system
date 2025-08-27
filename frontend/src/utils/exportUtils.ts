@@ -584,14 +584,8 @@ const getBookingProperty = (booking: Booking | SliceBooking, prop: string): any 
         return sliceBooking.User?.full_name || 'N/A';
       case 'roomNumber':
         return sliceBooking.roomId || sliceBooking.Room?.roomNumber || 'N/A';
-      case 'startDate':
+      case 'bookingDate':
         return sliceBooking.bookingDate || new Date().toISOString();
-      case 'endDate':
-        // Calculate end date (assuming 1 semester = 6 months)
-        const startDate = new Date(sliceBooking.bookingDate);
-        const endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 6);
-        return endDate.toISOString();
       default:
         return (sliceBooking as any)[prop] || 'N/A';
     }
@@ -603,14 +597,8 @@ const getBookingProperty = (booking: Booking | SliceBooking, prop: string): any 
         return 'N/A'; // Regular booking doesn't have student name directly
       case 'roomNumber':
         return regularBooking.roomNumber || 'N/A';
-      case 'startDate':
+      case 'bookingDate':
         return regularBooking.bookingDate || new Date().toISOString();
-      case 'endDate':
-        // Calculate end date (assuming 1 semester = 6 months)
-        const startDate = new Date(regularBooking.bookingDate);
-        const endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 6);
-        return endDate.toISOString();
       default:
         return (regularBooking as any)[prop] || 'N/A';
     }
@@ -636,9 +624,7 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
     const studentName = getBookingProperty(booking, 'studentName');
     const roomNumber = getBookingProperty(booking, 'RoomNumber');
     const RoomType = getBookingProperty(booking, 'RoomType');
-    const startDate = new Date(getBookingProperty(booking, 'startDate')).toLocaleDateString();
-    const endDate = new Date(getBookingProperty(booking, 'endDate')).toLocaleDateString();
-    const isActive = new Date(getBookingProperty(booking, 'endDate')) > new Date();
+    const bookingDate = (getBookingProperty(booking, 'bookingDate')).toLocaleDateString();
     
     return `
         <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
