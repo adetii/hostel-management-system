@@ -781,326 +781,86 @@ export const exportIndividualStudentToPDF = async (student: Student, bookings?: 
   
   const profileHTML = `
   <!DOCTYPE html>
-  <html lang="en">
-  <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Student Profile - ${student.full_name}</title>
-      <style>
-          * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-          }
-          
-          body {
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              background-color: #f8fafc;
-              color: #1e293b;
-              line-height: 1.4;
-              font-size: 12px;
-          }
-          
-          .container {
-              max-width: 210mm;
-              margin: 0 auto;
-              background: white;
-              height: 297mm;
-              overflow: hidden;
-          }
-          
-          .header {
-              background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #06b6d4 100%);
-              color: white;
-              padding: 16px;
-              position: relative;
-          }
-          
-          .header-content {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-          }
-          
-          .header-left {
-              display: flex;
-              align-items: center;
-              gap: 12px;
-          }
-          
-          .logo {
-              width: 40px;
-              height: 40px;
-              background: rgba(255, 255, 255, 0.95);
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-weight: bold;
-              font-size: 16px;
-              color: #1e40af;
-          }
-          
-          .header-title {
-              font-size: 18px;
-              font-weight: 700;
-              margin-bottom: 2px;
-          }
-          
-          .header-subtitle {
-              color: #bfdbfe;
-              font-size: 12px;
-          }
-          
-          .header-contact {
-              text-align: right;
-              font-size: 10px;
-              background: rgba(255, 255, 255, 0.1);
-              padding: 8px;
-              border-radius: 8px;
-          }
-          
-          .header-contact p {
-              margin-bottom: 2px;
-              display: flex;
-              align-items: center;
-              justify-content: flex-end;
-              gap: 4px;
-          }
-          
-          .student-profile {
-              padding: 16px;
-              height: calc(297mm - 120px);
-              overflow: hidden;
-          }
-          
-          .profile-card {
-              background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-              border-radius: 12px;
-              padding: 16px;
-              margin-bottom: 16px;
-              border: 1px solid #e2e8f0;
-          }
-          
-          .profile-header {
-              display: flex;
-              align-items: center;
-              gap: 16px;
-              margin-bottom: 16px;
-          }
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Profile - ${student.full_name}</title>
+</head>
+<body>
+    <table border="1" width="100%" cellpadding="8">
+        <tr>
+            <td colspan="2">
+                <h1>Student Profile</h1>
+                <h3>${HOSTEL_CONFIG.name}</h3>
+            </td>
+            <td align="right">
+                <p>📞 ${HOSTEL_CONFIG.phone}</p>
+                <p>✉️ ${HOSTEL_CONFIG.email}</p>
+                <p>🌐 ${HOSTEL_CONFIG.website}</p>
+            </td>
+        </tr>
+    </table>
 
-          .profile-info h2 {
-              font-size: 20px;
-              font-weight: 700;
-              color: #1e293b;
-              margin-bottom: 4px;
-          }
-          
-          .student-id {
-              background: #3b82f6;
-              color: white;
-              padding: 4px 8px;
-              border-radius: 12px;
-              font-size: 10px;
-              font-weight: 600;
-              display: inline-block;
-              margin-bottom: 8px;
-          }
-          
-         
-          
-          .content-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 16px;
-              height: calc(100% - 120px);
-          }
-          
-          .left-column {
-              display: flex;
-              flex-direction: column;
-              gap: 12px;
-          }
-          
-          .right-column {
-              display: flex;
-              flex-direction: column;
-              gap: 12px;
-          }
-          
-          .info-grid {
-              display: grid;
-              grid-template-columns: 1fr;
-              gap: 8px;
-          }
-          
-          .info-item {
-              background: white;
-              padding: 8px;
-              border-radius: 6px;
-              border-left: 3px solid #3b82f6;
-              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          }
-          
-          .info-label {
-              color: #64748b;
-              font-size: 9px;
-              font-weight: 500;
-              margin-bottom: 2px;
-              text-transform: uppercase;
-              letter-spacing: 0.3px;
-          }
-          
-          .info-value {
-              font-size: 11px;
-              font-weight: 600;
-              color: #1e293b;
-          }
-          
-          .section {
-              background: white;
-              border-radius: 8px;
-              padding: 12px;
-              border: 1px solid #e2e8f0;
-              flex: 1;
-              overflow: hidden;
-          }
-          
-          .section-title {
-              font-size: 14px;
-              font-weight: 700;
-              color: #1e293b;
-              margin-bottom: 8px;
-              display: flex;
-              align-items: center;
-              gap: 6px;
-          }
-          
-          .section-title::before {
-              content: '';
-              width: 3px;
-              height: 14px;
-              background: linear-gradient(135deg, #3b82f6, #06b6d4);
-              border-radius: 2px;
-          }
-          
+    <br>
 
-          
-          .footer {
-              background: #f1f5f9;
-              padding: 8px 16px;
-              text-align: center;
-              border-top: 1px solid #e2e8f0;
-              position: absolute;
-              bottom: 0;
-              left: 0;
-              right: 0;
-          }
-          
-          .footer-content {
-            color: #64748b;
-            font-size: 9px;
-            font-weight: 700;
-            margin-bottom: 2px;
-          }
+    <table border="1" width="100%" cellpadding="8">
+        <tr>
+            <th colspan="2">Student Information</th>
+        </tr>
+        <tr>
+            <td>Full Name</td>
+            <td>${student.full_name}</td>
+        </tr>
+        <tr>
+            <td>Email</td>
+            <td>${student.email}</td>
+        </tr>
+        <tr>
+            <td>Phone Number</td>
+            <td>${student.phoneNumber}</td>
+        </tr>
+        <tr>
+            <td>Gender</td>
+            <td>${student.gender}</td>
+        </tr>
+        <tr>
+            <td>Programme Of Study</td>
+            <td>${student.programmeOfStudy}</td>
+        </tr>
+        <tr>
+            <td>Academic Level</td>
+            <td>${student.level}</td>
+        </tr>
+    </table>
 
-          
-                  * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; line-height: 1.4; font-size: 12px; }
-        .container { position: relative; max-width: 210mm; margin: 0 auto; background: white; height: 297mm; overflow: hidden; }
-        /* ... other existing styles ... */
-        .footer {
-            background: #f1f5f9;
-            padding: 8px 16px;
-            text-align: center;
-            border-top: 1px solid #e2e8f0;
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            font-weight: 700;
-            page-break-after: always;
-        }
-        @media print {
-            body { margin: 0; padding: 0; background: white; }
-            .container { box-shadow: none; max-width: none; height: 100vh; }
-            @page { margin: 0.5cm; size: A4; }
-        }
-          }
-      </style>
-  </head>
-  <body>
-      <div class="container">
-          <!-- Header -->
-          <div class="header">
-              <div class="header-content">
-                  <div class="header-left">
-                      <div class="logo">EH</div>
-                      <div>
-                          <div class="header-title">Student Profile</div>
-                          <div class="header-subtitle">${HOSTEL_CONFIG.name}</div>
-                      </div>
-                  </div>
-                  <div class="header-contact">
-                      <p><span>📞</span> ${HOSTEL_CONFIG.phone}</p>
-                      <p><span>✉️</span> ${HOSTEL_CONFIG.email}</p>
-                      <p><span>🌐</span> ${HOSTEL_CONFIG.website}</p>
-                  </div>
-              </div>
-          </div>
-          
-          <!-- Student Profile -->
-                    <div class="student-profile">
-                        <div class="grid grid-cols-2 gap-8">
-                            <div class="space-y-4">
-                              <div>
-                                    <p><stong>Student Email</strong> ${student.email}</p>                           
-                                
-                                    <p><stong>Student Phone Number</strong> ${student.phoneNumber}</p>
-                              
-                                    <p><stong>Genderl</strong> ${student.gender}</p>
+    <br>
 
-                                    <p><stong>Programme Of Study</strong> ${student.programmeOfStudy}</p>
-                             
-                                   <p><stong>Academic Level</strong> ${student.level}</p>
-                                
-                               </div>
-			                </div>
-			            </div>
-                    </div>
-            <!-- Guardian & Other Sections -->
-            
-            <div class="guardian-profile">
-            <!-- Guardian Info Card -->
-            <div class="profile-card">
-                <div class="profile-header">
-                <div class="profile-info">
-                    <h2>Guardian Info</h2>
-                </div>
-                </div>
-                <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Guadian Full Name</div>
-                    <div class="info-value">${student.guardianName}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Guardian Phone Number</div>
-                    <div class="info-value">${student.guardianPhoneNumber}</div>
-                </div>
-            </div>
-        </div>
-    
-         <!-- Footer -->
-        <div class="footer">
-        <div class="footer-content">
-            Generated on ${currentDate} | © ${new Date().getFullYear()} ${HOSTEL_CONFIG.name}
-        </div>
-        </div>
+    <table border="1" width="100%" cellpadding="8">
+        <tr>
+            <th colspan="2">Guardian Information</th>
+        </tr>
+        <tr>
+            <td>Guardian Full Name</td>
+            <td>${student.guardianName}</td>
+        </tr>
+        <tr>
+            <td>Guardian Phone Number</td>
+            <td>${student.guardianPhoneNumber}</td>
+        </tr>
+    </table>
 
-        </div>
-      </div>
-  </body>
-  </html>
+    <br>
+
+    <table border="1" width="100%" cellpadding="8">
+        <tr>
+            <td align="center">
+                Generated on ${currentDate} | © ${new Date().getFullYear()} ${HOSTEL_CONFIG.name}
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+
   `;
   
   const filename = `Student_Profile_${student.full_name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
