@@ -617,7 +617,7 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
       const endDate = new Date(getBookingProperty(b, 'endDate'));
       return endDate <= new Date();
     }).length,
-    'Report Date': new Date(row.dateField).toLocaleDateString()
+    'Report Date': new Date(rows.dateField).toLocaleDateString()
 
   };
   
