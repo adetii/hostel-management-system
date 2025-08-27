@@ -617,14 +617,16 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
       const endDate = new Date(getBookingProperty(b, 'endDate'));
       return endDate <= new Date();
     }).length,
-    'Report Date': new Date().toLocaleDateString()
+    'Report Date': new Date(row.dateField).toLocaleDateString()
+
   };
   
   const rows = bookings.map((booking, index) => {
     const studentName = getBookingProperty(booking, 'studentName');
     const roomNumber = getBookingProperty(booking, 'RoomNumber');
     const RoomType = getBookingProperty(booking, 'RoomType');
-    const bookingDate = (getBookingProperty(booking, 'bookingDate')).toLocaleDateString();
+    const bookingDate = new Date(getBookingProperty(booking, 'bookingDate')).toLocaleDateString();
+
     
     return `
         <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
