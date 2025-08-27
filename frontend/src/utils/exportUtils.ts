@@ -645,7 +645,7 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
             <td class="px-4 py-3 text-sm">${studentName}</td>
             <td class="px-4 py-3 text-sm">${booking.Room?.roomNumber}</td>
             <td class "px-4 py-3 text-sm">${booking.Room?.RoomType}</td>
-            <td class="px-4 py-3 text-sm">${bookingDate}</td>
+            <td class="px-4 py-3 text-sm">${booking.Room?.bookingDate}</td>
         </tr>
     `;
   }).join('');
