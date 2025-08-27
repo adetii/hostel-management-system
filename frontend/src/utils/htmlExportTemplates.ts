@@ -472,27 +472,22 @@ export const generateIndividualStudentHTML = (student: Student, title?: string) 
                         <div class="grid grid-cols-2 gap-8">
                             <div class="space-y-4">
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
-                                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Email Address</p>
-                                    <p class="text-gray-900 font-medium text-lg">${student.email}</p>
+                                    <p><stong>Student Email</strong> ${student.email}</p>
                                 </div>
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
-                                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Phone Number</p>
-                                    <p class="text-gray-900 font-medium text-lg">${student.phoneNumber}</p>
+                                    <p><stong>Student Phone Number</strong> ${student.phoneNumber}</p>
                                 </div>
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
-                                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Gender</p>
-                                    <p class="text-gray-900 font-medium text-lg capitalize">${student.gender}</p>
+                                    <p><stong>Genderl</strong> ${student.gender}</p>
                                 </div>
                             </div>
                             
                             <div class="space-y-4">
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
-                                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Programme of Study</p>
-                                    <p class="text-gray-900 font-medium text-lg">${student.programmeOfStudy}</p>
+                                    <p><stong>Programme Of Study</strong> ${student.programmeOfStudy}</p>
                                 </div>
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
-                                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Academic Level</p>
-                                    <p class="text-gray-900 font-medium text-lg">${student.level}</p>
+                                   <p><stong>Academic Level</strong> ${student.level}</p>
                                 </div>
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Student ID</p>
