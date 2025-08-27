@@ -471,30 +471,21 @@ export const generateIndividualStudentHTML = (student: Student, title?: string) 
                         <!-- Student Details Grid -->
                         <div class="grid grid-cols-2 gap-8">
                             <div class="space-y-4">
-                                <div class="bg-white rounded-lg p-4 border border-gray-200">
-                                    <p><stong>Student Email</strong> ${student.email}</p>
-                                </div>
-                                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                              <div>
+                                    <p><stong>Student Email</strong> ${student.email}</p>                           
+                                
                                     <p><stong>Student Phone Number</strong> ${student.phoneNumber}</p>
-                                </div>
-                                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                              
                                     <p><stong>Genderl</strong> ${student.gender}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="space-y-4">
-                                <div class="bg-white rounded-lg p-4 border border-gray-200">
+
                                     <p><stong>Programme Of Study</strong> ${student.programmeOfStudy}</p>
-                                </div>
-                                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                             
                                    <p><stong>Academic Level</strong> ${student.level}</p>
-                                </div>
-                                <div class="bg-white rounded-lg p-4 border border-gray-200">
-                                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Student ID</p>
-                                    <p class="text-gray-900 font-medium text-lg">${student.id || 'N/A'}</p>
-                                </div>
-                            </div>
-                        </div>
+                                
+                               </div>
+			                </div>
+			            </div>
+
                     </div>
                 </div>
             </div>
