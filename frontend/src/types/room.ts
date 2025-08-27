@@ -4,6 +4,7 @@ export interface Room {
   roomNumber: string;
   type?: string;
   roomType?: string;
+  bookingDate: string;
   capacity: number;
   status?: 'available' | 'unavailable' | 'occupied';
   isAvailable?: boolean;

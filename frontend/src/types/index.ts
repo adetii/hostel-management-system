@@ -34,6 +34,7 @@ export interface Booking {
   _id: string;
   studentId: string;
   roomId: string;
+  roomType: string;
   roomNumber: string
   bookingDate: string;
   termsAgreed: boolean;

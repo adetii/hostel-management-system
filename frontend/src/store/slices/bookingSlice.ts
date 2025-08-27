@@ -10,6 +10,7 @@ export interface Booking {
   roomId: string;
   roomNumber: string;
   bookingDate: string;
+  roomType: string;
   termsAgreed: boolean;
   status: 'active' | 'cancelled' | 'pending' | 'confirmed' | 'completed';
   User?: {

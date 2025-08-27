@@ -635,24 +635,17 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
   const rows = bookings.map((booking, index) => {
     const studentName = getBookingProperty(booking, 'studentName');
     const roomNumber = getBookingProperty(booking, 'RoomNumber');
+    const RoomType = getBookingProperty(booking, 'RoomType');
     const startDate = new Date(getBookingProperty(booking, 'startDate')).toLocaleDateString();
     const endDate = new Date(getBookingProperty(booking, 'endDate')).toLocaleDateString();
     const isActive = new Date(getBookingProperty(booking, 'endDate')) > new Date();
     
     return `
         <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-            <td class="px-4 py-3 text-sm text-center">${index + 1}</td>
             <td class="px-4 py-3 text-sm">${studentName}</td>
             <td class="px-4 py-3 text-sm">${booking.Room?.roomNumber}</td>
-            <td class="px-4 py-3 text-sm">${startDate}</td>
-            <td class="px-4 py-3 text-sm">${endDate}</td>
-            <td class="px-4 py-3 text-sm text-center">
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }">
-                    ${isActive ? 'Active' : 'Expired'}
-                </span>
-            </td>
+            <td class "px-4 py-3 text-sm">${booking.Room?.RoomType}</td>
+            <td class="px-4 py-3 text-sm">${bookingDate}</td>
         </tr>
     `;
   }).join('');
@@ -663,12 +656,10 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
           <table id="bookingsTable" class="w-full border-collapse border border-gray-300">
               <thead>
                   <tr class="bg-blue-600 text-white">
-                      
                       <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Student Name</th>
                       <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Room Number</th>
                       <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Room Type</th>
-                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">End Date</th>
-                      
+                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Booking Date</th>
                   </tr>
               </thead>
               <tbody>
