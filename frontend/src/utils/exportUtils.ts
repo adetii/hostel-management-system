@@ -4,9 +4,10 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import html2canvas from 'html2canvas';
 import { toast } from 'react-hot-toast';
-import { Student, Booking, Room } from '@/types';
+import { Student, Booking } from '@/types';
 import { Booking as SliceBooking } from '@/store/slices/bookingSlice';
 import { Room as RoomType } from '@/types/room';
+import { Room } from '@/types/room';
 
 // Extended Student interface with numbering
 interface StudentWithNumber extends Student {
@@ -18,7 +19,7 @@ const HOSTEL_CONFIG = {
   name: 'Elite Hostel Management System',
   tagline: 'Excellence in Student Accommodation',
   address: 'University Campus, Academic City',
-  phone: '+233 XX XXX XXXX',
+  phone: '+233 22 222 2222',
   email: 'info@elitehostel.edu.gh',
   website: 'www.elitehostel.edu.gh',
   primaryColor: '#1e40af',
@@ -581,7 +582,7 @@ const getBookingProperty = (booking: Booking | SliceBooking, prop: string): any 
     switch (prop) {
       case 'studentName':
         return sliceBooking.User?.full_name || 'N/A';
-      case 'roomId':
+      case 'roomNumber':
         return sliceBooking.roomId || sliceBooking.Room?.roomNumber || 'N/A';
       case 'startDate':
         return sliceBooking.bookingDate || new Date().toISOString();
@@ -600,8 +601,8 @@ const getBookingProperty = (booking: Booking | SliceBooking, prop: string): any 
     switch (prop) {
       case 'studentName':
         return 'N/A'; // Regular booking doesn't have student name directly
-      case 'roomId':
-        return regularBooking.roomId || 'N/A';
+      case 'roomNumber':
+        return regularBooking.roomNumber || 'N/A';
       case 'startDate':
         return regularBooking.bookingDate || new Date().toISOString();
       case 'endDate':
@@ -633,7 +634,7 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
   
   const rows = bookings.map((booking, index) => {
     const studentName = getBookingProperty(booking, 'studentName');
-    const roomId = getBookingProperty(booking, 'roomId');
+    const roomNumber = getBookingProperty(booking, 'RoomNumber');
     const startDate = new Date(getBookingProperty(booking, 'startDate')).toLocaleDateString();
     const endDate = new Date(getBookingProperty(booking, 'endDate')).toLocaleDateString();
     const isActive = new Date(getBookingProperty(booking, 'endDate')) > new Date();
@@ -642,7 +643,7 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
         <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
             <td class="px-4 py-3 text-sm text-center">${index + 1}</td>
             <td class="px-4 py-3 text-sm">${studentName}</td>
-            <td class="px-4 py-3 text-sm">${roomId}</td>
+            <td class="px-4 py-3 text-sm">${booking.Room?.roomNumber}</td>
             <td class="px-4 py-3 text-sm">${startDate}</td>
             <td class="px-4 py-3 text-sm">${endDate}</td>
             <td class="px-4 py-3 text-sm text-center">
@@ -662,12 +663,12 @@ export const exportBookingsToPDF = async (bookings: (Booking | SliceBooking)[], 
           <table id="bookingsTable" class="w-full border-collapse border border-gray-300">
               <thead>
                   <tr class="bg-blue-600 text-white">
-                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">#</th>
+                      
                       <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Student Name</th>
-                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Room ID</th>
-                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Start Date</th>
+                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Room Number</th>
+                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Room Type</th>
                       <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">End Date</th>
-                      <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold">Status</th>
+                      
                   </tr>
               </thead>
               <tbody>
@@ -790,8 +791,9 @@ export const exportIndividualStudentToPDF = async (student: Student, bookings?: 
     <table border="1" width="100%" cellpadding="8">
         <tr>
             <td colspan="2">
-                <h1>Student Profile</h1>
                 <h3>${HOSTEL_CONFIG.name}</h3>
+                <h1>Student Profile</h1>
+                
             </td>
             <td align="right">
                 <p>📞 ${HOSTEL_CONFIG.phone}</p>

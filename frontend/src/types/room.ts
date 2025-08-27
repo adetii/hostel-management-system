@@ -5,14 +5,14 @@ export interface Room {
   type?: string;
   roomType?: string;
   capacity: number;
-  status?: 'available' | 'unavailable';
+  status?: 'available' | 'unavailable' | 'occupied';
   isAvailable?: boolean;
   currentOccupancy?: number;
   // Add other room properties as needed
 }
 
 export type RoomType = 'single' | 'double' | 'triple' | 'deluxe';
-export type RoomStatus = 'available' | 'occupied' | 'maintenance';
+export type RoomStatus = 'available' | 'occupied' | 'unavailable';
 export interface RoomOccupants {
   roomId: string;
   roomNumber: string;

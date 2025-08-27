@@ -8,6 +8,7 @@ export interface Booking {
   _id: string;
   studentId: string;
   roomId: string;
+  roomNumber: string;
   bookingDate: string;
   termsAgreed: boolean;
   status: 'active' | 'cancelled' | 'pending' | 'confirmed' | 'completed';
