@@ -1050,42 +1050,24 @@ export const exportIndividualStudentToPDF = async (student: Student, bookings?: 
           </div>
           
           <!-- Student Profile -->
-         <div class="student-profile">
-            <!-- Student Info Card -->
-            <div class="profile-card">
-                <div class="profile-header">
-                <div class="profile-info">
-                    <h2>Student Info</h2>
-                </div>
-                </div>
-                <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Full Name</div>
-                    <div class="info-value">${student.full_name}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Email</div>
-                    <div class="info-value">${student.email}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Phone</div>
-                    <div class="info-value">${student.phoneNumber}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Gender</div>
-                    <div class="info-value">${student.gender}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Level</div>
-                    <div class="info-value">${student.level}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Programme</div>
-                    <div class="info-value">${student.programmeOfStudy}</div>
-                </div>
-                </div>
-            </div>
+                    <div class="student-profile">
+                        <div class="grid grid-cols-2 gap-8">
+                            <div class="space-y-4">
+                              <div>
+                                    <p><stong>Student Email</strong> ${student.email}</p>                           
+                                
+                                    <p><stong>Student Phone Number</strong> ${student.phoneNumber}</p>
+                              
+                                    <p><stong>Genderl</strong> ${student.gender}</p>
 
+                                    <p><stong>Programme Of Study</strong> ${student.programmeOfStudy}</p>
+                             
+                                   <p><stong>Academic Level</strong> ${student.level}</p>
+                                
+                               </div>
+			                </div>
+			            </div>
+                    </div>
             <!-- Guardian & Other Sections -->
             
             <div class="guardian-profile">
