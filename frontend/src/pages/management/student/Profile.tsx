@@ -95,7 +95,7 @@ const StudentProfile: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      dispatch(fetchStudentById(user.id));
+      dispatch(fetchStudentById(user.publicId ?? user.id));
     }
   }, [dispatch, user]);
 
@@ -121,7 +121,7 @@ const StudentProfile: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) {
+    if (!user?.id && !user?.publicId) {
       toast.error('User ID not available');
       return;
     }
@@ -130,7 +130,7 @@ const StudentProfile: React.FC = () => {
     
     try {
       await dispatch(updateStudentProfile({ 
-        id: user.id, 
+        id: user.publicId ?? user.id, 
         level: formData.level 
       })).unwrap();
       

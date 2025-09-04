@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -93,6 +93,7 @@ const AvailableRooms: React.FC = () => {
   const [termsAgreed, setTermsAgreed] = useState<boolean>(false);
   const [isBooking, setIsBooking] = useState<boolean>(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const redirectingRef = useRef(false);
 
   // Normalize helpers
   const getRoomType = (room?: Partial<Room> | null): string => {
@@ -277,16 +278,26 @@ const AvailableRooms: React.FC = () => {
         })
       ).unwrap();
 
-      handleCloseBookingModal();
       toast.success('Room booked successfully!');
+
+      // mark redirecting, close modal, navigate with replace
+      redirectingRef.current = true;
+      handleCloseBookingModal();
+      navigate('/management/student', { replace: true });
+
+      // background refresh (do not await)
       if (user?.id) {
-        await dispatch(fetchStudentByIdFresh(String(user.id)));
+        setTimeout(() => {
+          dispatch(fetchStudentByIdFresh(String(user.id)));
+        }, 0);
       }
-      navigate('/management/student');
+      return;
     } catch (error: any) {
       setBookingError(error?.message || 'Failed to book room. Please try again.');
     } finally {
-      setIsBooking(false);
+      if (!redirectingRef.current) {
+        setIsBooking(false);
+      }
     }
   };
 
@@ -401,7 +412,7 @@ const AvailableRooms: React.FC = () => {
             <div className="flex items-center space-x-4">
               <Button
                 onClick={() => setShowFilters(!showFilters)}
-                className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center"
+                className=" dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-600 dark:hover:bg-gray-600 flex items-center"
               >
                 <FunnelIcon className="h-5 w-5 mr-2" />
                 Filters
@@ -456,9 +467,7 @@ const AvailableRooms: React.FC = () => {
                     <option value="single">Single</option>
                     <option value="double">Double</option>
                     <option value="triple">Triple</option>
-                    <option value="standard">Standard</option>
                     <option value="deluxe">Deluxe</option>
-                    <option value="suite">Suite</option>
                   </select>
                 </div>
                 <div>
@@ -546,12 +555,12 @@ const AvailableRooms: React.FC = () => {
 
                     <div className="flex space-x-3">
                       <Button
-                          onClick={() => navigate(`/management/student/rooms/${String((room as any)._id ?? (room as any).id ?? '')}`)}
-                          className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center"
-                        >
-                          <EyeIcon className="h-4 w-4 mr-2" />
-                          View Details
-                        </Button>
+                        onClick={() => navigate(`/management/student/rooms/p/${room.publicId || room._id || room.id}`)}
+                        className="bg-gray-600 dark:bg-gray-700 text-white hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg px-4 py-2 flex items-center justify-center"
+                      >
+                        <EyeIcon className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
                       {isBookingPortalOpen && (
                        <Button
                             onClick={() => handleOpenBookingModal(room)}
@@ -595,7 +604,7 @@ const AvailableRooms: React.FC = () => {
                     
                     <div className="flex space-x-3">
                       <Button
-                        onClick={() => navigate(`/management/student/rooms/${room._id || room.id}`)}
+                        onClick={() => navigate(`/management/student/rooms/p/${room.publicId || room._id || room.id}`)}
                         className="bg-gray-600 dark:bg-gray-700 text-white hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg px-4 py-2 flex items-center justify-center"
                       >
                         <EyeIcon className="h-4 w-4 mr-2" />
@@ -757,7 +766,7 @@ const AvailableRooms: React.FC = () => {
             >
               {isBooking ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Booking...
                 </>
               ) : (

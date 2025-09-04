@@ -355,22 +355,32 @@ const AdminManagement: React.FC = () => {
                         <PencilIcon className="h-4 w-4 mr-1" />
                         Edit
                       </button>
-                      <button
-                        onClick={() => toggleAdminStatus(admin.id, admin.isActive)}
-                        disabled={togglingId === admin.id}
-                        className={`flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-70 disabled:cursor-not-allowed ${
-                          admin.isActive ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'
-                        }`}
-                        title={admin.isActive ? 'Deactivate Admin' : 'Activate Admin'}
-                      >
-                        {togglingId === admin.id && (
-                          <span className="inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
-                        )}
-                        {admin.isActive ? (
-                          <><XCircleIcon className="h-4 w-4 mr-1" /> Deactivate</>
-                        ) : (
-                          <><CheckCircleIcon className="h-4 w-4 mr-1" /> Activate</>
-                        )}
+                        <button
+                            onClick={() => toggleAdminStatus(admin.id, admin.isActive)}
+                            disabled={togglingId === admin.id}
+                            className={`flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-70 disabled:cursor-not-allowed ${
+                              admin.isActive ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'
+                            }`}
+                            title={admin.isActive ? 'Deactivate Admin' : 'Activate Admin'}
+                          >
+                            {togglingId === admin.id ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                                {admin.isActive ? 'Deactivating...' : 'Activating...'}
+                              </>
+                            ) : (
+                              <>
+                                {admin.isActive ? (
+                                  <>
+                                    <XCircleIcon className="h-4 w-4 mr-1" /> Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircleIcon className="h-4 w-4 mr-1" /> Activate
+                                  </>
+                                )}
+                              </>
+                            )}
                       </button>
                       <button
                         onClick={() => openDeleteModal(admin)}
@@ -607,7 +617,7 @@ const AdminManagement: React.FC = () => {
                     disabled={creating}
                     className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                   >
-                    {creating && <span className="inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+                    {creating && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>}
                     {creating ? 'Creating...' : 'Create Admin'}
                   </button>
                 </div>
@@ -703,7 +713,7 @@ const AdminManagement: React.FC = () => {
                     disabled={updating}
                     className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                   >
-                    {updating && <span className="inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+                    {updating && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>}
                     {updating ? 'Updating...' : 'Update Admin'}
                   </button>
                 </div>
@@ -817,7 +827,7 @@ const AdminManagement: React.FC = () => {
                   disabled={deleting}
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                 >
-                  {deleting && <span className="inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
+                  {deleting && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>}
                   {deleting ? 'Deleting...' : 'Delete Admin'}
                 </button>
               </div>

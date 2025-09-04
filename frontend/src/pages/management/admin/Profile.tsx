@@ -207,7 +207,7 @@ const AdminProfile: React.FC = () => {
             >
               {saving ? (
                 <>
-                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   <span>Saving...</span>
                 </>
               ) : (

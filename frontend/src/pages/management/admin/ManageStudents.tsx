@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { RootState } from '@/store';
 import {
   fetchStudents,
@@ -31,11 +31,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import ExportButton from '@/components/management/common/ExportButton';
+import StudentDeletionModal from '@/components/management/common/StudentDeletionModal';
 import {
   exportStudentsToPDF,
   exportStudentsToExcel,
   exportIndividualStudentToPDF
 } from '@/utils/exportUtils';
+
 
 interface FormData {
   email: string;
@@ -65,8 +67,9 @@ interface FormErrors {
 
 const ManageStudents: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { students, error } = useSelector((state: RootState) => state.student);
+  const { students, error, loading } = useSelector((state: RootState) => state.student);
   const location = useLocation();
+  const navigate = useNavigate();
   
   // State management
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,7 +79,7 @@ const ManageStudents: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isViewMode, setIsViewMode] = useState(true); // Add this line
-  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState<{id: string, name: string, email: string} | null>(null);
   
   // Add local loading states for all actions
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -176,6 +179,10 @@ const ManageStudents: React.FC = () => {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
+    if (editingStudent && formData.password && formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
     if (!formData.full_name) {
       newErrors.full_name = 'Full name is required';
     }
@@ -253,51 +260,34 @@ const ManageStudents: React.FC = () => {
   };
 
   const handleEditStudent = (student: Student) => {
-    setEditingStudent(student);
-    setFormData({
-      email: student.email,
-      password: '',
-      full_name: student.full_name,
-      gender: String(student.gender ?? ''),
-      phoneNumber: student.phoneNumber,
-      dateOfBirth: normalizeDateForInput(student.dateOfBirth),
-      programmeOfStudy: student.programmeOfStudy,
-      guardianName: student.guardianName,
-      guardianPhoneNumber: student.guardianPhoneNumber,
-      level: student.level,
-    });
-    setShowCreateForm(true);
+    navigate(`/management/admin/students/${student.publicId ?? student.id}?tab=profile`);
   };
 
   // Modified handler for viewing student profile
   const handleViewStudent = (student: Student) => {
-    setEditingStudent(student);
-    setFormData({
-      email: student.email,
-      password: '',
-      full_name: student.full_name,
-      gender: String(student.gender ?? ''),
-      phoneNumber: student.phoneNumber,
-      dateOfBirth: normalizeDateForInput(student.dateOfBirth),
-      programmeOfStudy: student.programmeOfStudy,
-      guardianName: student.guardianName,
-      guardianPhoneNumber: student.guardianPhoneNumber,
-      level: student.level,
-    });
-    setIsViewMode(true); // Start in view mode
-    setShowCreateForm(true);
+    navigate(`/management/admin/students/${student.publicId ?? student.id}`);
   };
 
-  const handleDeleteStudent = (studentId: string) => {
-    setShowDeleteModal(studentId);
+  const handleDeleteStudent = (student: Student) => {
+    setShowDeleteModal({
+      id: student.id,
+      name: student.full_name || student.fullName || 'Unknown',
+      email: student.email
+    });
   };
 
   const confirmDelete = async () => {
     if (showDeleteModal) {
       setIsDeleting(true);
       try {
-        await dispatch(deleteStudent(showDeleteModal)).unwrap();
-        toast.success('Student deleted successfully');
+        const result = await dispatch(deleteStudent(showDeleteModal.id)).unwrap();
+        toast.success('Student and all related data deleted successfully');
+        
+        // Show detailed success message if available
+        if (result.summary) {
+          console.log('Deletion summary:', result.summary);
+        }
+        
         setShowDeleteModal(null);
       } catch (error: any) {
         toast.error(error.message || 'Failed to delete student');
@@ -336,7 +326,9 @@ const ManageStudents: React.FC = () => {
           programmeOfStudy: formData.programmeOfStudy,
           guardianName: formData.guardianName,
           guardianPhoneNumber: formData.guardianPhoneNumber,
-          level: formData.level
+          level: formData.level,
+          // Include password only if provided during edit
+          ...(formData.password ? { password: formData.password } : {}),
         };
         
         await dispatch(updateStudentByAdmin({
@@ -344,7 +336,7 @@ const ManageStudents: React.FC = () => {
           studentData: studentData
         })).unwrap();
       } else {
-        // Create new student
+        // Create new student (password required)
         await dispatch(createStudent(formData)).unwrap();
       }
       
@@ -369,7 +361,7 @@ const ManageStudents: React.FC = () => {
   // Updated filter logic to include gender with null safety
   const filteredStudents = students.filter((student: Student) => {
     // Safely get string values with fallbacks
-    const fullName = student.full_name || '';
+    const fullName = (student.full_name || student.fullName || '');
     const email = student.email || '';
     const programme = student.programmeOfStudy || '';
     const searchLower = searchTerm.toLowerCase();
@@ -391,7 +383,7 @@ const ManageStudents: React.FC = () => {
   const hasActiveFilters = searchTerm !== '' || filter !== '' || genderFilter !== '';
 
   // Only show loading screen for initial load (when no students exist)
-  if (!students) {
+  if (loading && students.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen space-x-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -441,19 +433,251 @@ const ManageStudents: React.FC = () => {
             className="[&>button]:bg-white [&>button]:hover:bg-white [&>button]:border-0 [&>button]:rounded-lg"
           />
           <Button
-            leftIcon={<PlusIcon className="w-5 h-5" />}
-            onClick={() => {
-              setShowCreateForm(true);
-              setIsViewMode(false);
-              setEditingStudent(null);
-              resetForm();
-            }}
+            leftIcon={<PlusIcon className="w-3 h-3" />}
+            onClick={() => setShowCreateForm(true)}
             variant="primary"
           >
             Add Student
           </Button>
         </div>
       </div>
+
+      {/* Modal: Create Student */}
+      {showCreateForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => {
+            setShowCreateForm(false);
+            setEditingStudent(null);
+            resetForm();
+          }}
+        >
+          <div
+            className="w-full max-w-2xl rounded-xl bg-white dark:bg-gray-800 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-student-title"
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-5 py-4">
+              <h2 id="create-student-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+                Add New Student
+              </h2>
+              <button
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setEditingStudent(null);
+                  resetForm();
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+                aria-label="Close"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+                </div>
+
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    name="full_name"
+                    value={formData.full_name}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.full_name && <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>}
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Gender
+                  </label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                  {errors.gender && <p className="mt-1 text-sm text-red-600">{errors.gender}</p>}
+                </div>
+
+                {/* Phone Number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.phoneNumber && <p className="mt-1 text-sm text-red-600">{errors.phoneNumber}</p>}
+                </div>
+
+                {/* Date of Birth */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>}
+                </div>
+
+                {/* Programme of Study */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Programme of Study
+                  </label>
+                  <input
+                    type="text"
+                    name="programmeOfStudy"
+                    value={formData.programmeOfStudy}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.programmeOfStudy && <p className="mt-1 text-sm text-red-600">{errors.programmeOfStudy}</p>}
+                </div>
+
+                {/* Guardian Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Guardian Name
+                  </label>
+                  <input
+                    type="text"
+                    name="guardianName"
+                    value={formData.guardianName}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.guardianName && <p className="mt-1 text-sm text-red-600">{errors.guardianName}</p>}
+                </div>
+
+                {/* Guardian Phone Number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Guardian Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="guardianPhoneNumber"
+                    value={formData.guardianPhoneNumber}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.guardianPhoneNumber && <p className="mt-1 text-sm text-red-600">{errors.guardianPhoneNumber}</p>}
+                </div>
+
+                {/* Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Level
+                  </label>
+                  <input
+                    type="text"
+                    name="level"
+                    value={formData.level}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  {errors.level && <p className="mt-1 text-sm text-red-600">{errors.level}</p>}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setEditingStudent(null);
+                    resetForm();
+                  }}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                    type="submit"
+                    disabled={isSubmitting || !isFormValid()}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
+                    aria-busy={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div
+                          className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
+                          aria-hidden="true"
+                        />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      'Create Student'
+                    )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* End Modal */}
 
       {/* Statistics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -598,7 +822,7 @@ const ManageStudents: React.FC = () => {
                     Contact
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Programme
+                    Gender
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
@@ -621,13 +845,13 @@ const ManageStudents: React.FC = () => {
                         <div className="flex-shrink-0 h-10 w-10">
                           <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
                             <span className="text-white font-medium text-sm">
-                              {student.full_name?.charAt(0)?.toUpperCase() || 'N'}
+                              {(student.full_name || student.fullName || '').charAt(0)?.toUpperCase() || 'N'}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {student.full_name || 'No Name'}
+                            {student.full_name || student.fullName || 'No Name'}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             Level {student.level}
@@ -640,11 +864,11 @@ const ManageStudents: React.FC = () => {
                       <div className="text-sm text-gray-500 dark:text-gray-400">{student.phoneNumber}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">{student.programmeOfStudy}</div>
+                      
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-{typeof student.gender === 'string' ? 
-  (student.gender.charAt(0).toUpperCase() + student.gender.slice(1)) : 
-  'Not specified'}
+                        {typeof student.gender === 'string' ? 
+                          (student.gender.charAt(0).toUpperCase() + student.gender.slice(1)) : 
+                          'Not specified'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -667,14 +891,7 @@ const ManageStudents: React.FC = () => {
                         >
                           View Profile
                         </Button>
-                        <Button
-                          variant="secondary"
-                          size="xs"
-                          onClick={() => handleExportIndividualStudent(student)}
-                          leftIcon={<DocumentArrowDownIcon className="w-4 h-4" />}
-                        >
-                          Export
-                        </Button>
+                        
                         <Button
                           variant={student.isActive ? 'warning' : 'success'}
                           size="sm"
@@ -697,7 +914,7 @@ const ManageStudents: React.FC = () => {
                         <Button
                           variant="danger"
                           size="sm"
-                          onClick={() => handleDeleteStudent(student.id)}
+                          onClick={() => handleDeleteStudent(student)}
                           leftIcon={<TrashIcon className="w-4 h-4" />}
                         >
                           Delete
@@ -718,13 +935,13 @@ const ManageStudents: React.FC = () => {
                 <div className="flex-shrink-0 h-12 w-12">
                   <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
                     <span className="text-white font-medium">
-                      {student.full_name?.charAt(0)?.toUpperCase() || 'N'}
+                      {(student.full_name || student.fullName || '').charAt(0)?.toUpperCase() || 'N'}
                     </span>
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
-                    {student.full_name}
+                    {student.full_name || student.fullName || 'No Name'}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                     {student.email}
@@ -740,10 +957,7 @@ const ManageStudents: React.FC = () => {
               </div>
               
               <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">Programme:</span>
-                    <span className="text-gray-900 dark:text-white font-medium">{student.programmeOfStudy}</span>
-                  </div>
+                  
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Level:</span>
                     <span className="text-gray-900 dark:text-white font-medium">{student.level}</span>
@@ -797,7 +1011,7 @@ const ManageStudents: React.FC = () => {
                     <Button
                       variant="danger"
                       size="sm"
-                      onClick={() => handleDeleteStudent(student.id)}
+                      onClick={() => handleDeleteStudent(student)}
                       leftIcon={<TrashIcon className="w-4 h-4" />}
                     >
                       Delete
@@ -809,351 +1023,18 @@ const ManageStudents: React.FC = () => {
         </div>
       )}
 
-      {/* Create/Edit Student Modal */}
-      {showCreateForm && (
-        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {editingStudent ? (isViewMode ? 'Student Profile' : 'Edit Student') : 'Add New Student'}
-                </h2>
-                <div className="flex items-center space-x-2">
-                  {editingStudent && isViewMode && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setIsViewMode(false)}
-                      leftIcon={<PencilIcon className="w-4 h-4" />}
-                    >
-                      Edit Profile
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowCreateForm(false);
-                      setEditingStudent(null);
-                      setIsViewMode(true);
-                      resetForm();
-                    }}
-                    leftIcon={<XMarkIcon className="w-5 h-5" />}
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Email */}
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    required={!isViewMode}
-                    value={formData.email}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter email address"
-                  />
-                  {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
-                </div>
 
-                {/* Password (only for new students) */}
-                {!editingStudent && !isViewMode && (
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      id="password"
-                      required
-                      value={formData.password}
-                      onChange={handleChange}
-                      className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                        errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                      placeholder="Enter password"
-                    />
-                    {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
-                  </div>
-                )}
 
-                {/* Full Name */}
-                <div>
-                  <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="full_name"
-                    id="full_name"
-                    required={!isViewMode}
-                    value={formData.full_name}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.full_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter full name"
-                  />
-                  {errors.full_name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.full_name}</p>}
-                </div>
-
-                {/* Gender */}
-                <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Gender
-                  </label>
-                  <select
-                    name="gender"
-                    id="gender"
-                    required={!isViewMode}
-                    value={formData.gender}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:text-gray-900 dark:disabled:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.gender ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                  >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                  </select>
-                  {errors.gender && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.gender}</p>}
-                </div>
-
-                {/* Phone Number */}
-                <div>
-                  <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    name="phoneNumber"
-                    id="phoneNumber"
-                    required={!isViewMode}
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.phoneNumber ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter phone number"
-                  />
-                  {errors.phoneNumber && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.phoneNumber}</p>}
-                </div>
-
-                {/* Date of Birth */}
-                <div>
-                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    name="dateOfBirth"
-                    id="dateOfBirth"
-                    required={!isViewMode}
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.dateOfBirth ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                  />
-                  {errors.dateOfBirth && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.dateOfBirth}</p>}
-                </div>
-
-                {/* Programme of Study */}
-                <div>
-                  <label htmlFor="programmeOfStudy" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Programme of Study
-                  </label>
-                  <input
-                    type="text"
-                    name="programmeOfStudy"
-                    id="programmeOfStudy"
-                    required={!isViewMode}
-                    value={formData.programmeOfStudy}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.programmeOfStudy ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter programme of study"
-                  />
-                  {errors.programmeOfStudy && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.programmeOfStudy}</p>}
-                </div>
-
-                {/* Level */}
-                <div>
-                  <label htmlFor="level" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Level
-                  </label>
-                  <input
-                    type="text"
-                    name="level"
-                    id="level"
-                    required={!isViewMode}
-                    value={formData.level}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.level ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter level (e.g., 100, 200, 300)"
-                  />
-                  {errors.level && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.level}</p>}
-                </div>
-
-                {/* Guardian Name */}
-                <div>
-                  <label htmlFor="guardianName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Guardian Name
-                  </label>
-                  <input
-                    type="text"
-                    name="guardianName"
-                    id="guardianName"
-                    required={!isViewMode}
-                    value={formData.guardianName}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.guardianName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter guardian name"
-                  />
-                  {errors.guardianName && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.guardianName}</p>}
-                </div>
-
-                {/* Guardian Phone Number */}
-                <div>
-                  <label htmlFor="guardianPhoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Guardian Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    name="guardianPhoneNumber"
-                    id="guardianPhoneNumber"
-                    required={!isViewMode}
-                    value={formData.guardianPhoneNumber}
-                    onChange={handleChange}
-                    disabled={isViewMode}
-                    className={`w-full px-4 py-3 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      isViewMode ? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed' : ''
-                    } ${
-                      errors.guardianPhoneNumber ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter guardian phone number"
-                  />
-                  {errors.guardianPhoneNumber && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.guardianPhoneNumber}</p>}
-                </div>
-              </div>
-
-              {!isViewMode && (
-                <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowCreateForm(false);
-                      setEditingStudent(null);
-                      setIsViewMode(true);
-                      resetForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={!isFormValid() || isSubmitting}
-                    className="flex items-center space-x-2"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>{editingStudent ? 'Updating...' : 'Creating...'}</span>
-                      </>
-                    ) : (
-                      <span>{editingStudent ? 'Update Student' : 'Create Student'}</span>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 dark:bg-red-900/30 rounded-full">
-                <ExclamationTriangleIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white text-center mb-2">
-                Delete Student
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
-                Are you sure you want to delete this student? This action cannot be undone.
-              </p>
-              <div className="flex space-x-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeleteModal(null)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="danger"
-                  onClick={confirmDelete}
-                  className="flex-1"
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Deleting...
-                    </>
-                  ) : (
-                    'Delete'
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Comprehensive Student Deletion Modal */}
+      <StudentDeletionModal
+        isOpen={!!showDeleteModal}
+        onClose={() => setShowDeleteModal(null)}
+        onConfirm={confirmDelete}
+        studentId={showDeleteModal?.id || ''}
+        studentName={showDeleteModal?.name || ''}
+        studentEmail={showDeleteModal?.email || ''}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 };

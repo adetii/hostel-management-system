@@ -1,4 +1,5 @@
 export interface Room {
+  publicId: string | undefined;
   id?: number;
   _id?: string;
   roomNumber: string;

@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { toast } from 'react-hot-toast';
 import api from '../../api/config';
 import { setCsrfToken, clearCsrfToken } from '@/utils/csrf';
+import { publicApi } from '@/api/config';
 
 interface User {
   id: string;
@@ -100,10 +101,8 @@ export const register = createAsyncThunk(
   }, { rejectWithValue }) => {
     try {
       const res = await api.post('/auth/register', userData);
-      const csrfRes = await api.get('/auth/csrf-token', {
-        headers: { 'X-Skip-Auth-Redirect': 'true' }
-      });
-      setCsrfToken(csrfRes.data.csrfToken);
+      // Don't try to get CSRF token after registration since user doesn't have a session yet
+      // The CSRF token will be obtained after email verification and login
       return res.data;
     } catch (err: any) {
       // Handle emergency lockdown 503 specifically for registration
@@ -167,6 +166,40 @@ export const resetPassword = createAsyncThunk(
   }
 );
 
+// New: verify email thunk
+export const verifyEmail = createAsyncThunk(
+  'auth/verifyEmail',
+  async (token: string, { rejectWithValue }) => {
+    try {
+      // Use public (non-tabbed) API and correct path (no extra /api prefix)
+      const url = `/auth/verify-email/${token}`;
+      console.log('Calling verification URL:', url);
+      console.log('Public API base URL:', publicApi.defaults.baseURL);
+      const res = await publicApi.get(url);
+      console.log('Verification response:', res.data);
+      return res.data;
+    } catch (err: any) {
+      console.error('Verification API error:', err);
+      console.error('Error response data:', err?.response?.data);
+      return rejectWithValue(err?.response?.data || { message: 'Email verification failed' });
+    }
+  }
+);
+
+// New: resend verification thunk
+export const resendVerification = createAsyncThunk(
+  'auth/resendVerification',
+  async (email: string, { rejectWithValue }) => {
+    try {
+      // Use public (non-tabbed) API and correct path (no extra /api prefix)
+      const res = await publicApi.post(`/auth/resend-verification`, { email });
+      return res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data || { message: 'Failed to resend verification email' });
+    }
+  }
+);
+
 // Logout thunk - renamed to logoutUser to match imports
 export const logoutUser = createAsyncThunk('auth/logout', async (_, { rejectWithValue }) => {
   try {
@@ -182,7 +215,9 @@ export const logoutUser = createAsyncThunk('auth/logout', async (_, { rejectWith
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
-    user: null as null | { id: string; email: string; fullName: string; role: string; isActive: boolean },
+    user: null as null | {
+      publicId: string; id: string; email: string; fullName: string; role: string; isActive: boolean 
+},
     loading: false,
     error: null as null | string,
     isAuthenticated: false,
@@ -238,15 +273,21 @@ const authSlice = createSlice({
       .addCase(login.rejected, (state, action: any) => {
         state.loading = false;
         state.error = action.payload?.message || 'Login failed';
-        toast.error(state.error);
+        // If backend signals unverified account, show a clearer toast
+        if (action.payload?.emailNotVerified) {
+          toast.error(action.payload?.message || 'Email not verified. Please verify your email.');
+        } else {
+          toast.error(state.error);
+        }
       })
       .addCase(register.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(register.fulfilled, (state, action: PayloadAction<any>) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
+        // Do NOT authenticate on registration; prompt to verify email
+        state.user = null;
+        state.isAuthenticated = false;
         state.hydrated = true; // added (safe)
-        toast.success('Registration successful');
+        toast.success(action.payload?.message || 'Verification email sent. Please check your inbox.');
       })
       .addCase(register.rejected, (state, action: any) => {
         state.loading = false;
@@ -309,6 +350,30 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload?.message || 'Logout failed';
         toast.error(state.error);
+      })
+      // New: verify email handlers
+      .addCase(verifyEmail.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(verifyEmail.fulfilled, (state, action: any) => {
+        state.loading = false;
+        toast.success(action.payload?.message || 'Email verified. You can now log in.');
+      })
+      .addCase(verifyEmail.rejected, (state, action: any) => {
+        state.loading = false;
+        const msg = action.payload?.message || 'Email verification failed';
+        state.error = msg;
+        toast.error(msg);
+      })
+      // New: resend verification handlers
+      .addCase(resendVerification.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(resendVerification.fulfilled, (state, action: any) => {
+        state.loading = false;
+        toast.success(action.payload?.message || 'Verification email sent.');
+      })
+      .addCase(resendVerification.rejected, (state, action: any) => {
+        state.loading = false;
+        const msg = action.payload?.message || 'Failed to resend verification email';
+        state.error = msg;
+        toast.error(msg);
       });
   }
 });

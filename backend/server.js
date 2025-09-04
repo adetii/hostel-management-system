@@ -83,7 +83,7 @@ if (process.env.NODE_ENV === 'production') {
 // 5) Rate limiter for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 10,
   message: 'Too many requests, please try again later.'
 });
 // Apply rate limiting to both old and new auth routes
@@ -91,9 +91,12 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
+app.use('/api/auth/verify-email', authLimiter);
+app.use('/api/auth/resend-verification', authLimiter);
 // Add rate limiting for tab-based auth routes
 app.use('/api/tab/*/auth/login', authLimiter);
 app.use('/api/tab/*/auth/register', authLimiter);
+app.use('/api/tab/*/auth/resend-verification', authLimiter);
 
 // 6) Test DB connection
 testConnection();

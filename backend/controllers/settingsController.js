@@ -3,6 +3,9 @@ const { validationResult } = require('express-validator');
 const { sendNoticeToStudents } = require('../utils/email');
 const { User } = require('../models');
 const cacheService = require('../utils/cacheService');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // @desc    Get system settings
 // @route   GET /api/settings
@@ -282,9 +285,6 @@ exports.updatePaymentConfig = async (req, res) => {
 // @route   POST /api/settings/send-notice
 // @access  Private/Admin
 // Add multer import at the top
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads/notices');
@@ -353,7 +353,8 @@ exports.sendNoticeToStudents = async (req, res) => {
       };
       
       // For web download
-      attachmentUrl = `/api/settings/attachments/${attachment.filename}`;
+      const FRONTEND_URL = process.env.FRONTEND_URL;
+      attachmentUrl = `${FRONTEND_URL}/api/settings/attachments/${attachment.filename}`;
     }
 
     // Send emails with attachment

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -115,7 +115,7 @@ const RoomDetails: React.FC = () => {
   const { socket } = useSocket();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { roomPid } = useParams<{ roomPid: string }>();
   const { selectedRoom: room, roomOccupants, loading: roomLoading } = useSelector(
     (state: RootState) => state.room,
   );
@@ -133,40 +133,40 @@ const RoomDetails: React.FC = () => {
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  const redirectingRef = useRef(false);
 
   // ALL useEffect hooks MUST come here - BEFORE any conditional returns
   useEffect(() => {
-    if (id) {
-      dispatch(fetchRoomById(id)).finally(() => {
+    if (roomPid) {
+      dispatch(fetchRoomById(roomPid)).finally(() => {
         setHasAttemptedLoad(true);
       });
-      dispatch(fetchRoomOccupants(id));
+      dispatch(fetchRoomOccupants(roomPid));
       dispatch(fetchPublicSettings());
     }
     
     if (user?.id) {
       dispatch(fetchStudentById(user.id));
     }
-  }, [dispatch, id, user]);
+  }, [dispatch, roomPid, user]);
 
   // Socket event listeners
   useEffect(() => {
-    if (socket && id) {
+    if (socket && roomPid) {
       socket.on('room-availability-changed', (data: any) => {
-        if (data.roomId === id) {
-          dispatch(fetchRoomById(id));
-          dispatch(fetchRoomOccupants(id));
+        if (data.roomPublicId === roomPid) {
+          dispatch(fetchRoomById(roomPid));
+          dispatch(fetchRoomOccupants(roomPid));
         }
       });
 
       socket.on('room-just-booked', (data: any) => {
-        if (data.roomId === id) {
-          // suppress for self (avoid toasting when the current user booked the room)
+        if (data.roomPublicId === roomPid) {
           if (user && String(data.studentId) === String(user.id)) {
             return;
           }
-          dispatch(fetchRoomById(id));
-          dispatch(fetchRoomOccupants(id));
+          dispatch(fetchRoomById(roomPid));
+          dispatch(fetchRoomOccupants(roomPid));
           toast.error('This room was just booked by another student');
         }
       });
@@ -178,9 +178,8 @@ const RoomDetails: React.FC = () => {
       socket.on('settings-updated', refreshSettings);
       socket.on('portal-status-changed', refreshSettings);
       socket.on('room-updated', (data: any) => {
-        if (data.roomId === id) {
-          dispatch(fetchRoomById(id));
-          // keep this mild success toast or remove if you prefer absolute quiet
+        if (data.roomPublicId === roomPid) {
+          dispatch(fetchRoomById(roomPid));
           toast.success('Room details have been updated');
         }
       });
@@ -193,9 +192,12 @@ const RoomDetails: React.FC = () => {
         socket.off('room-updated');
       };
     }
-  }, [socket, dispatch, id, user]);
+  }, [socket, dispatch, roomPid, user]);
 
   // NOW conditional returns can come after ALL hooks
+  if (redirectingRef.current) {
+    return null;
+  }
   if (roomLoading || settingsLoading || studentLoading || !hasAttemptedLoad) {
     return (
      <div className="flex items-center justify-center min-h-screen space-x-4">
@@ -245,16 +247,24 @@ const RoomDetails: React.FC = () => {
         })
       ).unwrap();
       
+      // mark redirecting, stop rendering, and navigate immediately
+      redirectingRef.current = true;
       setShowBookingModal(false);
-      toast.success('Room booked successfully!');
+      navigate('/management/student', { replace: true });
+
+      // background refresh (do not await)
       if (user?.id) {
-        await dispatch(fetchStudentByIdFresh(String(user.id)));
+        setTimeout(() => {
+          dispatch(fetchStudentByIdFresh(String(user.id)));
+        }, 0);
       }
-      navigate('/management/student');
+      return;
     } catch (error: any) {
       setBookingError(error.message || 'Failed to book room. Please try again.');
     } finally {
-      setIsBooking(false);
+      if (!redirectingRef.current) {
+        setIsBooking(false);
+      }
     }
   };
 
@@ -843,5 +853,3 @@ const RoomDetails: React.FC = () => {
 };
 
 export default RoomDetails;
-
-

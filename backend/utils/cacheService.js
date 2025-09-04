@@ -155,6 +155,8 @@ class CacheService {
     await this.delPattern('admins:*');
     await this.delPattern('admin:*');
     await this.delPattern('student_bookings:*');
+    // Invalidate per-student current bookings too
+    await this.delPattern('student_*_bookings_*');
     await this.delPattern('room_occupants:*'); // User changes affect room occupants
   }
 
@@ -162,6 +164,8 @@ class CacheService {
     await this.delPattern('bookings:*');
     await this.delPattern('booking:*');
     await this.delPattern('student_bookings:*');
+    // Invalidate per-student current bookings too
+    await this.delPattern('student_*_bookings_*');
     await this.delPattern('room_occupants:*'); // Booking changes affect room occupants
     await this.delPattern('stats:*');
     await this.delPattern('dashboard:*');
@@ -196,19 +200,21 @@ class CacheService {
       // High frequency, high impact - shorter TTL
       'room_availability': 30,      // 5 minutes
       'dashboard_stats': 30,      // 10 minutes
-      
+      // Explicit TTL for "current bookings" per student
+      'booking_current': 60,
+
       // Medium frequency - medium TTL
       'room_details': 300,         // 30 minutes
       'room_occupants': 60,         // 15 minutes (moderate frequency)
-      'user_profiles': 1800,         // 30 minutes
-      'booking_history': 3600,       // 1 hour
-      
+      'user_profiles': 300,         // 30 minutes
+      'booking_history': 3600,       // 1 hours
+
       // Low frequency, high consistency - longer TTL
       'settings': 5,              // 2 hours
       'public_settings': 7200,       // 2 hours
       'public_content': 14400,       // 4 hours (rarely changes)
       'user_lists': 3600,            // 1 hour
-      
+
       // Default
       'default': 300                // 1 hour
     };

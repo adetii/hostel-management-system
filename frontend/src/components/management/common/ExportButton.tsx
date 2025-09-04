@@ -11,9 +11,10 @@ interface ExportOption {
 interface ExportButtonProps {
   options: ExportOption[];
   className?: string;
+  buttonSize?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 }
 
-const ExportButton: React.FC<ExportButtonProps> = ({ options, className = '' }) => {
+const ExportButton: React.FC<ExportButtonProps> = ({ options, className = '', buttonSize = 'sm' }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -21,11 +22,12 @@ const ExportButton: React.FC<ExportButtonProps> = ({ options, className = '' }) 
       <Button
         onClick={() => setIsOpen(!isOpen)}
         variant="outline"
+        size={buttonSize}
         className="flex items-center space-x-2"
       >
-        <DocumentArrowDownIcon className="w-5 h-5" />
+        <DocumentArrowDownIcon className="w-4 h-4" />
         <span>Export</span>
-        <ChevronDownIcon className="w-4 h-4" />
+        <ChevronDownIcon className="w-3.5 h-3.5" />
       </Button>
 
       {isOpen && (

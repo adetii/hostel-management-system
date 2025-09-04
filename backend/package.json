@@ -9,11 +9,15 @@
     "test": "jest",
     "seed:admin": "node seeders/adminSeeder.js",
     "seed:super-admin": "node seeders/superAdminSeeder.js",
+    "syncdb": "node scripts/syncDatabase.js",
     "seed:initial": "node seeders/initialDataSeeder.js",
     "seed:rooms": "node seeders/roomSeeder.js",
-    "setup:db": "npm run seed:admin"
+    "setup:db": "npm run seed:admin",
+    "migrate:db": "node scripts/migrateAcademicFields.js",
+    "clear:cache": "node scripts/clearUserCaches.js"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.3.0",
     "axios": "^1.11.0",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.1.2",
@@ -34,10 +38,11 @@
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^6.10.1",
+    "react": "^18.3.1",
     "redis": "^5.8.0",
     "seeder": "^0.2.4",
     "socket.io": "^4.8.1",
-    "uuid": "^11.1.0",
+    "uuid": "^9.0.1",
     "validator": "^13.11.0"
   },
   "devDependencies": {

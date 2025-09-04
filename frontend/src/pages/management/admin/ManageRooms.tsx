@@ -23,7 +23,7 @@ import { Room } from '@/types/room';
 import { toast } from 'react-hot-toast';
 import { DocumentIcon, TableCellsIcon } from '@heroicons/react/24/outline';
 import ExportButton from '@/components/management/common/ExportButton';
-import { exportRoomsToPDF, exportRoomsToExcel } from '@/utils/exportUtils';
+import { exportRoomsToExcel } from '@/utils/exportUtils';
 import { useLocation } from 'react-router-dom';
 
 type RoomType = 'single' | 'double' | 'triple' | 'deluxe';
@@ -385,21 +385,6 @@ function ManageRooms() {
   }, [dispatch]);
 
   // Export handlers
-  const handleExportAllRoomsPDF = () => {
-    exportRoomsToPDF(filteredRooms, 'All Rooms Report');
-  };
-  
-  const handleExportAllRoomsExcel = () => {
-    exportRoomsToExcel(filteredRooms, 'All_Rooms_Report');
-  };
-  
-  const handleExportAvailableRoomsPDF = () => {
-    const availableRooms = filteredRooms.filter(room => {
-      const status = room.status || (room.isAvailable ? 'available' : 'unavailable');
-      return status === 'available';
-    });
-    exportRoomsToPDF(availableRooms, 'Available Rooms Report');
-  };
   
   const handleExportAvailableRoomsExcel = () => {
     const availableRooms = filteredRooms.filter(room => {
@@ -409,10 +394,6 @@ function ManageRooms() {
     exportRoomsToExcel(availableRooms, 'Available_Rooms_Report');
   };
 
-  const handleExportIndividualRoom = (room: Room) => {
-    exportRoomsToPDF([room], `Room_${room.roomNumber}_Report`);
-  };
-  
   
   // Helper function to sort room numbers alphanumerically
   const sortRoomNumbers = (a: Room, b: Room) => {
@@ -535,7 +516,7 @@ if (!rooms || rooms.length === 0) {
               // Show filtered option only when filters are active
               ...(hasActiveFilters ? [{
                 label: 'Filtered Rooms (Excel)',
-                action: handleExportAllRoomsExcel,
+                action: handleExportAvailableRoomsExcel,
                 icon: <TableCellsIcon className="w-4 h-4" />
               }] : []),
               {

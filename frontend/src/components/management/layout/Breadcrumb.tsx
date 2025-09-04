@@ -21,6 +21,9 @@ const Breadcrumb: React.FC = () => {
       bookings: 'Bookings',
       settings: 'Settings',
       profile: 'Profile',
+      archived: 'Archived',
+      history: 'History',
+      edit: 'Edit',
     };
     return labels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
   };
@@ -38,11 +41,32 @@ const Breadcrumb: React.FC = () => {
     return `/management${currentPath}`;
   };
 
+  // Filter out UUID/publicId segments (typically 36 characters with dashes)
+  const isUUID = (segment: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(segment);
+  };
+
+  // Filter out MongoDB ObjectIds (24 character hex strings)
+  const isObjectId = (segment: string): boolean => {
+    const objectIdRegex = /^[0-9a-f]{24}$/i;
+    return objectIdRegex.test(segment);
+  };
+
+  // Filter out any ID-like segments
+  const shouldExcludeSegment = (segment: string): boolean => {
+    return isUUID(segment) || isObjectId(segment);
+  };
+
+  const filteredPathnames = pathnames.filter(segment => !shouldExcludeSegment(segment));
+
   const breadcrumbs: BreadcrumbItem[] = [
     { label: 'Home', path: '/' },
-    ...pathnames.map((segment, index) => {
-      const constructedPath = `/${pathnames.slice(0, index + 1).join('/')}`;
-      const isLast = index === pathnames.length - 1;
+    ...filteredPathnames.map((segment, index) => {
+      // Reconstruct path using original pathnames up to the current filtered segment
+      const originalIndex = pathnames.indexOf(segment);
+      const constructedPath = `/${pathnames.slice(0, originalIndex + 1).join('/')}`;
+      const isLast = index === filteredPathnames.length - 1;
       
       return {
         label: getBreadcrumbLabel(segment),
@@ -51,7 +75,7 @@ const Breadcrumb: React.FC = () => {
     }),
   ];
 
-  if (pathnames.length === 0) return null;
+  if (filteredPathnames.length === 0) return null;
 
   return (
     <nav className="flex items-center space-x-2 text-sm">

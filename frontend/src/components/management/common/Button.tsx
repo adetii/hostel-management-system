@@ -30,35 +30,19 @@ const buttonVariants = cva(
   }
 );
 
-// Lightweight spinner component - no external dependency
-const Spinner: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
-  <svg 
-    className={`animate-spin ${className}`} 
-    xmlns="http://www.w3.org/2000/svg" 
-    fill="none" 
-    viewBox="0 0 24 24"
-  >
-    <circle 
-      className="opacity-25" 
-      cx="12" 
-      cy="12" 
-      r="10" 
-      stroke="currentColor" 
-      strokeWidth="4"
-    />
-    <path 
-      className="opacity-75" 
-      fill="currentColor" 
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-    />
-  </svg>
+// Border-style spinner (your requested markup)
+const BorderSpinner: React.FC<{ colorClass?: string }> = ({ colorClass = 'border-white' }) => (
+  <div
+    className={`animate-spin rounded-full h-4 w-4 border-b-2 ${colorClass} mr-2`}
+    aria-hidden="true"
+  />
 );
 
 interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   isLoading?: boolean;
-  loadingText?: string;
+  loadingText?: string | null; // null => spinner only, undefined => show children as fallback
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   fullWidth?: boolean;
@@ -77,25 +61,33 @@ const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
+  // Which variants should get a white spinner vs dark spinner
+  const lightSpinnerVariants = ['primary', 'success', 'danger', 'warning'];
+  const spinnerBorderClass = lightSpinnerVariants.includes(variant as string) ? 'border-white' : 'border-gray-700';
+
+  const contentClass = `${fullWidth ? 'w-full' : ''} ${className}`.trim();
+
   return (
     <button
-      className={buttonVariants({ 
-        variant, 
-        size, 
-        className: `${fullWidth ? 'w-full' : ''} ${className}` 
-      })}
+      className={buttonVariants({ variant, size, className: contentClass })}
       disabled={disabled || isLoading}
+      aria-busy={isLoading || undefined}
       {...props}
     >
       {isLoading ? (
         <>
-          <Spinner className="w-4 h-4 mr-2" />
-          {loadingText || 'Loading...'}
+          <BorderSpinner colorClass={spinnerBorderClass} />
+          {loadingText === null ? null : (
+            <>
+              <span>{loadingText ?? children}</span>
+              <span className="sr-only">{loadingText ?? 'Loading'}</span>
+            </>
+          )}
         </>
       ) : (
         <>
           {leftIcon && <span className="mr-2">{leftIcon}</span>}
-          {children}
+          <span>{children}</span>
           {rightIcon && <span className="ml-2">{rightIcon}</span>}
         </>
       )}

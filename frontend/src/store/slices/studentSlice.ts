@@ -20,6 +20,11 @@ const initialState: StudentState = {
   error: null,
 };
 
+// Helper to decide route based on ID type (ObjectId vs UUID)
+const isMongoObjectId = (v: string) => /^[a-fA-F0-9]{24}$/.test(v);
+const studentBasePath = (idOrPublicId: string) =>
+  isMongoObjectId(idOrPublicId) ? `/students/${idOrPublicId}` : `/students/p/${idOrPublicId}`;
+
 export const fetchStudents = createAsyncThunk('student/fetchStudents', async () => {
   const response = await cachedGet('/students');
   return response.data;
@@ -27,13 +32,13 @@ export const fetchStudents = createAsyncThunk('student/fetchStudents', async () 
 
 export const fetchStudentById = createAsyncThunk('student/fetchStudentById', async (id: string) => {
   if (!id) return null;
-  const response = await cachedGet(`/students/${id}`);
+  const response = await cachedGet(studentBasePath(id));
   return response.data;
 });
 
 export const fetchStudentByIdFresh = createAsyncThunk('student/fetchStudentByIdFresh', async (id: string) => {
   if (!id) return null;
-  const response = await cachedGet(`/students/${id}`, {
+  const response = await cachedGet(studentBasePath(id), {
     headers: { 'X-Bypass-Cache': 'true' }
   });
   return response.data;
@@ -53,7 +58,7 @@ export const updateStudentProfile = createAsyncThunk(
     guardianPhoneNumber?: string;
   }) => {
     const { id, ...updateData } = data;
-    const response = await api.put(`/students/${id}`, updateData);
+    const response = await api.put(studentBasePath(id), updateData);
     // Return just the student object so reducers receive the correct shape
     return response.data.student;
   }
@@ -63,7 +68,7 @@ export const checkoutStudent = createAsyncThunk(
   'students/checkout',
   async (studentId: string, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/students/${studentId}/check-out`);
+      const response = await api.post(`${studentBasePath(studentId)}/check-out`);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to checkout student');
@@ -76,11 +81,9 @@ export const updateStudentByAdmin = createAsyncThunk(
   'student/updateByAdmin',
   async (data: { id: string; studentData: Partial<Student> }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/students/${data.id}`, data.studentData);
-      console.log('Update response:', response.data); // Debug log
+      const response = await api.put(studentBasePath(data.id), data.studentData);
       return response.data.student; // Extract the student object from the response
     } catch (error: any) {
-      console.error('Update error:', error.response?.data); // Debug log
       return rejectWithValue(error.response?.data?.message || 'Failed to update student');
     }
   }
@@ -90,7 +93,7 @@ export const deleteStudent = createAsyncThunk(
   'student/delete',
   async (studentId: string, { rejectWithValue }) => {
     try {
-      await api.delete(`/students/${studentId}`);
+      await api.delete(studentBasePath(studentId));
       return studentId;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to delete student');
@@ -102,7 +105,7 @@ export const toggleStudentStatus = createAsyncThunk(
   'student/toggleStatus',
   async (studentId: string, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/students/${studentId}/status`);
+      const response = await api.put(`${studentBasePath(studentId)}/status`);
       return response.data.student;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update student status');
@@ -127,7 +130,11 @@ const studentSlice = createSlice({
       })
       .addCase(fetchStudents.fulfilled, (state, action) => {
         state.loading = false;
-        state.students = action.payload;
+        // Normalize name field for consistency
+        state.students = (action.payload || []).map((s: any) => ({
+          ...s,
+          full_name: s.full_name ?? s.fullName ?? ''
+        }));
       })
       .addCase(fetchStudents.rejected, (state, action) => {
         state.loading = false;
@@ -166,7 +173,13 @@ const studentSlice = createSlice({
       })
       .addCase(createStudent.fulfilled, (state, action) => {
         state.loading = false;
-        state.students.push(action.payload);
+        const normalized = {
+          ...action.payload,
+          full_name: action.payload.full_name ?? action.payload.fullName ?? '',
+          createdAt: action.payload.createdAt ?? new Date().toISOString(),
+        };
+        // Put the new student at the top
+        state.students = [normalized, ...state.students];
         toast.success('Student created successfully!');
       })
       .addCase(createStudent.rejected, (state, action) => {
@@ -200,13 +213,15 @@ const studentSlice = createSlice({
       })
       .addCase(updateStudentByAdmin.fulfilled, (state, action) => {
         state.loading = false;
-        // Update both selectedStudent and students array
         if (action.payload) {
-          state.selectedStudent = action.payload;
+          const normalized = {
+            ...action.payload,
+            full_name: action.payload.full_name ?? action.payload.fullName ?? '',
+          };
+          state.selectedStudent = normalized as any;
           state.students = state.students.map((student) =>
-            student.id === action.payload.id ? action.payload : student
+            student.id === normalized.id ? (normalized as any) : student
           );
-          // Show success toast here since it's not shown in the component
           toast.success('Student updated successfully');
         }
       })

@@ -15,7 +15,7 @@ const createDefaultAdmins = async () => {
       // Create default super admin
       const superAdmin = await Admin.create({
         email: 'superadmin@hostel.com',
-        password: 'SuperAdmin123!',
+        password: 'Secure123!',
         fullName: 'Super Administrator',
         phoneNumber: '+233243655362',
         gender: 'male',
@@ -26,7 +26,7 @@ const createDefaultAdmins = async () => {
       
       console.log('✅ Super admin created successfully!');
       console.log('📧 Email:', superAdmin.email);
-      console.log('🔑 Password: SuperAdmin123!');
+      console.log('🔑 Password: Secure123!');
     }
 
     // Check if regular admin exists

@@ -115,14 +115,11 @@ export const SocketProvider = ({ children }: SocketProviderProps): JSX.Element =
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
       isConnectingRef.current = false;
     });
 
     // Handle emergency lockdown events
     newSocket.on('emergency-lockdown', (data) => {
-      console.log('Emergency lockdown received:', data);
-      
       if (user?.role === 'student') {
         // Force logout students immediately
         dispatch(logout());

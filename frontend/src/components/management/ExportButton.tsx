@@ -6,7 +6,7 @@ import {
   exportStudentsToExcel,
   exportBookingsToExcel,
   exportRoomsToExcel
-} from '../utils/exportUtils';
+} from '@/utils/exportUtils';
 
 interface ExportButtonProps {
   data: any[];

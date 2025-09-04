@@ -134,10 +134,10 @@ const ResetPassword: React.FC = () => {
       setIsSuccess(true);
       toast.success('Password reset successfully!');
       
-      // Redirect to login after 3 seconds
+      // Redirect to login after 10 seconds
       setTimeout(() => {
         navigate('/management/login');
-      }, 3000);
+      }, 10000);
     } catch (error: any) {
       toast.error(error.message || 'Failed to reset password');
       if (error.message?.includes('token') || error.message?.includes('expired')) {
@@ -147,47 +147,76 @@ const ResetPassword: React.FC = () => {
   };
 
   if (!isTokenValid) {
-    return (
-      <div className="h-screen w-screen fixed inset-0 bg-cover bg-center bg-no-repeat bg-fixed overflow-hidden flex items-center justify-center lg:justify-end"
+        return (
+      <div 
+        className="h-screen w-screen fixed inset-0 bg-cover bg-center bg-no-repeat bg-fixed overflow-hidden flex items-center justify-center lg:justify-end animate-fade-in"
         style={{
           backgroundImage: `url('https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2069&q=80')`
         }}
       >
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-indigo-900/70 to-purple-900/80"></div>
-        
-        <div className="relative z-20 w-full h-full flex items-center justify-center mx-4">
-          <div className="w-full max-w-md h-[95vh] lg:h-auto overflow-y-auto scrollbar-hide">
-            <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 lg:p-8 min-h-full lg:min-h-0 flex flex-col justify-center text-center">
-              <div className="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-r from-red-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4 lg:mb-6">
-                <ExclamationTriangleIcon className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
+        {/* Background Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-indigo-900/70 to-purple-900/80 animate-gradient-shift"></div>
+
+        {/* Left Side Content (hidden on mobile) */}
+        <div className="hidden lg:flex absolute left-0 top-0 h-full w-1/2 flex-col justify-center items-start p-12 text-white z-10 animate-slide-in-left">
+          <div className="max-w-md space-y-6">
+            <h1 className="text-4xl font-bold mb-6 animate-fade-in-up animation-delay-300">
+              ELITE<br />
+              <span className="text-2xl font-normal animate-fade-in-up animation-delay-500">HOSTEL</span>
+            </h1>
+            <p className="text-lg mb-4 opacity-90 animate-fade-in-up animation-delay-700">
+              A HOME CLOSE FOR<br />
+              YOUR ACADEMIC SUCCESS
+            </p>
+            <p className="text-sm opacity-75 leading-relaxed animate-fade-in-up animation-delay-900">
+              Manage your stay, access notices, and stay updated.
+            </p>
+
+            {/* Floating Shapes */}
+            <div className="absolute top-20 right-20 w-20 h-20 bg-white/10 rounded-full animate-float"></div>
+            <div className="absolute bottom-40 right-10 w-12 h-12 bg-blue-400/20 rounded-full animate-float-reverse"></div>
+            <div className="absolute top-1/2 right-32 w-8 h-8 bg-purple-400/20 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Card */}
+        <div className="relative z-20 w-full lg:w-1/2 flex items-center justify-center mx-4 lg:mx-0 lg:mr-8 py-8 animate-slide-in-right">
+          <div className="w-full max-w-sm lg:max-w-md">
+            <div className="bg-white rounded-2xl shadow-xl p-6 lg:p-8 animate-scale-in hover:shadow-2xl transition-all duration-500 transform hover:scale-105">
+
+              {/* Icon */}
+              <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-red-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-in">
+                <ExclamationTriangleIcon className="w-6 h-6 lg:w-7 lg:h-7 text-white" />
               </div>
-              
-              <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-4">
+
+              {/* Heading */}
+              <h2 className="text-xl lg:text-2xl font-bold text-gray-900 text-center mb-2 animate-fade-in-up">
                 Invalid Reset Link
               </h2>
-              
-              <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mb-6">
-                This password reset link is invalid or has expired. Please request a new one.
+
+              <p className="text-sm lg:text-base text-gray-600 text-center mb-6 animate-fade-in-up animation-delay-200">
+                This password reset link is invalid or has expired.  
+                Please request a new one to continue.
               </p>
-              
+
+              {/* Actions */}
               <div className="space-y-4">
-                // Inside the "Invalid Reset Link" fallback UI section
                 <Link
                   to="/management/forgot-password"
-                  className="w-full flex items-center justify-center gap-2 px-4 lg:px-6 py-2.5 lg:py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm lg:text-base"
+                  className="block w-full py-3 rounded-lg font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 text-center shadow-md hover:shadow-xl animate-slide-in-up animation-delay-400"
                 >
                   Request New Reset Link
                 </Link>
-                
+
                 <Link
                   to="/management/login"
-                  className="flex items-center justify-center gap-2 w-full px-4 lg:px-6 py-2.5 lg:py-3 bg-white/20 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-white/30 transition-all duration-200 border border-white/30 text-sm lg:text-base"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors duration-200 border border-gray-200 animate-slide-in-up animation-delay-600"
                 >
-                  <ArrowLeftIcon className="w-3 h-3 lg:w-4 lg:h-4" />
+                  <ArrowLeftIcon className="w-4 h-4" />
                   Back to Login
                 </Link>
               </div>
+
             </div>
           </div>
         </div>
@@ -196,47 +225,84 @@ const ResetPassword: React.FC = () => {
   }
 
   if (isSuccess) {
-    return (
-      <div className="h-screen w-screen fixed inset-0 bg-cover bg-center bg-no-repeat bg-fixed overflow-hidden flex items-center justify-center lg:justify-end"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2069&q=80')`
-        }}
-      >
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-indigo-900/70 to-purple-900/80"></div>
-        
-        <div className="relative z-20 w-full h-full flex items-center justify-center mx-4">
-          <div className="w-full max-w-md h-[95vh] lg:h-auto overflow-y-auto scrollbar-hide">
-            <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 lg:p-8 min-h-full lg:min-h-0 flex flex-col justify-center text-center">
-              <div className="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 lg:mb-6">
-                <CheckCircleIcon className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
-              </div>
-              
-              <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Password Reset Successful!
-              </h2>
-              
-              <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mb-6">
-                Your password has been successfully reset. You can now log in with your new password.
-              </p>
-              
-              <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 mb-6">
-                <p className="text-blue-800 dark:text-blue-200 text-xs lg:text-sm">
-                  Redirecting to login page in 3 seconds...
-                </p>
-              </div>
-              
-              <Link
-                to="/management/login"
-                className="w-full flex items-center justify-center gap-2 px-4 lg:px-6 py-2.5 lg:py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl text-sm lg:text-base"
-              >
-                Continue to Login
-              </Link>
-            </div>
+   return (
+  <div
+    className="h-screen w-screen fixed inset-0 bg-cover bg-center bg-no-repeat bg-fixed overflow-hidden flex items-center justify-center lg:justify-end animate-fade-in"
+    style={{
+      backgroundImage: `url('https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2069&q=80')`
+    }}
+  >
+    {/* Background Overlay */}
+    <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-indigo-900/70 to-purple-900/80 animate-gradient-shift"></div>
+
+    {/* Left Side Content (hidden on mobile) */}
+    <div className="hidden lg:flex absolute left-0 top-0 h-full w-1/2 flex-col justify-center items-start p-12 text-white z-10 animate-slide-in-left">
+      <div className="max-w-md space-y-6">
+        <h1 className="text-4xl font-bold mb-6 animate-fade-in-up animation-delay-300">
+          ELITE<br />
+          <span className="text-2xl font-normal animate-fade-in-up animation-delay-500">
+            HOSTEL
+          </span>
+        </h1>
+        <p className="text-lg mb-4 opacity-90 animate-fade-in-up animation-delay-700">
+          A HOME CLOSE FOR<br />
+          YOUR ACADEMIC SUCCESS
+        </p>
+        <p className="text-sm opacity-75 leading-relaxed animate-fade-in-up animation-delay-900">
+          Manage your stay, access notices, and stay updated.
+        </p>
+
+        {/* Floating Shapes */}
+        <div className="absolute top-20 right-20 w-20 h-20 bg-white/10 rounded-full animate-float"></div>
+        <div className="absolute bottom-40 right-10 w-12 h-12 bg-blue-400/20 rounded-full animate-float-reverse"></div>
+        <div className="absolute top-1/2 right-32 w-8 h-8 bg-purple-400/20 rounded-full animate-pulse"></div>
+      </div>
+    </div>
+
+    {/* Card */}
+    <div className="relative z-20 w-full lg:w-1/2 flex items-center justify-center mx-4 lg:mx-0 lg:mr-8 py-8 animate-slide-in-right">
+      <div className="w-full max-w-sm lg:max-w-md">
+        <div className="bg-white rounded-2xl shadow-xl p-6 lg:p-8 animate-scale-in hover:shadow-2xl transition-all duration-500 transform hover:scale-105">
+
+          {/* Icon */}
+          <div className="w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-in">
+            <CheckCircleIcon className="w-6 h-6 lg:w-7 lg:h-7 text-white" />
           </div>
+
+          {/* Heading */}
+          <h2 className="text-xl lg:text-2xl font-bold text-gray-900 text-center mb-2 animate-fade-in-up">
+            Password Reset Successful!
+          </h2>
+
+          {/* Message */}
+          <p className="text-sm lg:text-base text-gray-600 text-center mb-6 animate-fade-in-up animation-delay-200">
+            Your password has been successfully reset.  
+            You can now log in with your new password.
+          </p>
+
+          {/* Redirect message */}
+          <div className="bg-gray-100 rounded-lg p-3 mb-6 animate-fade-in-up animation-delay-400">
+            <p className="text-blue-700 text-xs text-center">
+              Redirecting to login page in 3 seconds...
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="space-y-4">
+            <Link
+              to="/management/login"
+              className="block w-full py-3 rounded-lg font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200 text-center shadow-md hover:shadow-xl animate-slide-in-up animation-delay-600"
+            >
+              Continue to Login →
+            </Link>
+          </div>
+
         </div>
       </div>
-    );
+    </div>
+  </div>
+);
+
   }
 
   return (
@@ -304,7 +370,7 @@ const ResetPassword: React.FC = () => {
                       bg-white border-gray-300 text-gray-900 placeholder-gray-500
                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                       transition-all duration-200
-                      ${
+                        ${
                         errors.password
                           ? 'border-red-500 focus:ring-red-500'
                           : 'hover:border-gray-400'
@@ -430,7 +496,7 @@ const ResetPassword: React.FC = () => {
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 lg:w-5 lg:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     Resetting Password...
                   </>
                 ) : (

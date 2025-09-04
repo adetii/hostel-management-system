@@ -1,0 +1,4 @@
+// Add this near the top of your server.js file
+process.setMaxListeners(0); // Remove listener limit
+// OR
+process.setMaxListeners(20); // Set a higher limit

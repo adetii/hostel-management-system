@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -57,6 +58,25 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    index: true,
+    sparse: true
+  },
+  verificationTokenExpiresAt: {
+    type: Date
+  },
+  publicId: {
+    type: String,
+    unique: true,
+    index: true,
+    sparse: true
   }
 }, {
   timestamps: true,
@@ -64,6 +84,11 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true },
   collection: 'students' // ensure the model uses the "students" collection
 });
+
+// Ensure unique index on publicId (sparse during rollout)
+userSchema.index({ publicId: 1 }, { unique: true, sparse: true });
+// Add index for verification token lookups
+userSchema.index({ verificationToken: 1 }, { sparse: true });
 
 // Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {
@@ -76,6 +101,14 @@ userSchema.pre('save', async function(next) {
   } catch (error) {
     next(error);
   }
+});
+
+// Generate publicId if missing
+userSchema.pre('save', function(next) {
+  if (!this.publicId) {
+    this.publicId = uuidv4();
+  }
+  next();
 });
 
 // Instance method to check password

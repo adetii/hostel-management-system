@@ -3,12 +3,12 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { User, PasswordResetToken } = require('../models');
 const Admin = require('../models/Admin');
-// Add these:
 const Settings = require('../models/Settings');
 const cacheService = require('../utils/cacheService');
 const { validationResult } = require('express-validator');
 const { sendPasswordResetEmail } = require('../utils/email');
 const { createSession, deleteSession, listUserSessions, getCookieName } = require('../utils/sessionService');
+const { sendVerificationEmail } = require('../utils/email');
 
 // Store refresh tokens in memory (in production, use Redis or database)
 const refreshTokens = new Map();
@@ -93,14 +93,46 @@ exports.register = async (req, res) => {
       level 
     } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+    // Existing or new user
+    let user = await User.findOne({ email });
+
+    // 24h expiry and token
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Build management-prefixed base URL
+    const managementBaseUrl = (process.env.VITE_MANAGEMENT_SYSTEM_URL 
+      || process.env.SITE_URL 
+      || `${req.protocol}://${req.get('host')}/management`).replace(/\/+$/, '');
+
+    if (user) {
+      if (user.emailVerified) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+
+      user.password = password;
+      user.fullName = fullName;
+      user.gender = gender;
+      user.phoneNumber = phoneNumber;
+      user.dateOfBirth = dateOfBirth;
+      user.programmeOfStudy = programmeOfStudy;
+      user.guardianName = guardianName;
+      user.guardianPhoneNumber = guardianPhoneNumber;
+      user.level = level;
+      user.verificationToken = token;
+      user.verificationTokenExpiresAt = expiresAt;
+      await user.save();
+
+      const verifyUrl = `${managementBaseUrl}/verify-email/${token}`;
+      await sendVerificationEmail(user.email, user.fullName, verifyUrl);
+
+      return res.status(200).json({
+        message: 'Account pending verification. Please check your email to verify.',
+        verificationRequired: true
+      });
     }
 
-    // Create user
-    const user = await User.create({
+    user = await User.create({
       email,
       password,
       fullName,
@@ -110,41 +142,18 @@ exports.register = async (req, res) => {
       programmeOfStudy,
       guardianName,
       guardianPhoneNumber,
-      level
+      level,
+      emailVerified: false,
+      verificationToken: token,
+      verificationTokenExpiresAt: expiresAt
     });
 
-    // Create session with tab context
-    const { sessionId, session } = await createSession({
-      userId: user._id,
-      roles: ['student'],
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      tabId: req.tabId
-    });
+    const verifyUrl = `${managementBaseUrl}/verify-email/${token}`;
+    await sendVerificationEmail(user.email, user.fullName, verifyUrl);
 
-    const cookieName = getCookieName(req.tabId);
-    const isProd = process.env.NODE_ENV === 'production';
-
-    // Set secure session cookie
-    res.cookie(cookieName, sessionId, {
-      ...getSecureCookieOptions(req.tabId, isProd),
-      maxAge: 24 * 60 * 60 * 1000 // 24h
-    });
-
-    // Set secure CSRF cookie (HttpOnly for synchronizer pattern)
-    res.cookie(`${CSRF_COOKIE_NAME}_${req.tabId || 'default'}`, session.csrfToken, 
-      getCsrfCookieOptions(req.tabId, isProd)
-    );
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: user._id,
-        email: user.email,
-        fullName: user.fullName,
-        role: 'student',
-        isActive: user.isActive
-      }
+    return res.status(201).json({
+      message: 'Registration successful. Please verify your email to continue.',
+      verificationRequired: true
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -190,6 +199,14 @@ exports.login = async (req, res) => {
       res.clearCookie(`${CSRF_COOKIE_NAME}_${req.tabId || 'default'}`, { path: tabPath });
       res.clearCookie(`${CSRF_COOKIE_NAME}_default`, { path: '/' });
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Block student login if not verified
+    if (role === 'student' && user.emailVerified === false) {
+      return res.status(403).json({
+        message: 'Email not verified. Please verify your email to log in.',
+        emailNotVerified: true
+      });
     }
 
     // Enforce emergency lockdown for students only (admins and super_admins bypass)
@@ -454,6 +471,73 @@ exports.resetPassword = async (req, res) => {
 
   } catch (error) {
     console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Verify email by token
+// @route   GET /api/auth/verify-email/:token
+// @access  Public
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      return res.status(400).json({ message: 'Verification token is required' });
+    }
+
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationTokenExpiresAt: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired verification token' });
+    }
+
+    user.emailVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpiresAt = undefined;
+    await user.save();
+
+    return res.json({ message: 'Email verified successfully' });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Resend verification email
+// @route   POST /api/auth/resend-verification
+// @access  Public
+exports.resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'Account not found' });
+    }
+    if (user.emailVerified) {
+      return res.status(400).json({ message: 'Email already verified' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    user.verificationToken = token;
+    user.verificationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    const managementBaseUrl =
+      (process.env.VITE_MANAGEMENT_SYSTEM_URL || `${req.protocol}://${req.get('host')}/management`).replace(/\/+$/, '');
+    const verifyUrl = `${managementBaseUrl}/verify-email/${token}`;
+    
+    await sendVerificationEmail(user.email, user.fullName, verifyUrl);
+
+    return res.json({ message: 'Verification email sent' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

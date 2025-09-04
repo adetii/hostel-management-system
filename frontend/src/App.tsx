@@ -4,11 +4,11 @@ import { Provider, useSelector } from 'react-redux';
 import { store, RootState } from './store';
 import { useAppDispatch } from './hooks/useAppDispatch';
 import { Toaster } from 'react-hot-toast';
-import { hydrateAuth } from './store/slices/authSlice';
+import { hydrateAuth, logout } from './store/slices/authSlice';
 import ScrollToTop from './components/public/ScrollToTop';
 import ScrollToTopOnRouteChange from './components/public/ScrollToTopOnRouteChange';
 import { getOrCreateTabId } from './utils/tabId';
-import api from './api/config';
+import api, { registerEmergencyLogoutHandler } from './api/config';
 
 // Essential components (loaded immediately)
 import PublicLayout from './layouts/PublicLayout';
@@ -17,6 +17,7 @@ import { AuthLayout } from './components/management/layout';
 import { AdminLayout } from './components/management/layout';
 import { StudentLayout } from './components/management/layout';
 import ProtectedRoute from './components/shared/ProtectedRoute';
+import StudentProfile from '@/pages/management/admin/StudentProfile';
 import Login from './pages/management/auth/Login';
 import Register from './pages/management/auth/Register';
 import NotFound from '@/pages/management/NotFound';
@@ -34,9 +35,12 @@ const Rules = lazy(() => import('./pages/public/Rules'));
 // Auth Pages (lazy loaded)
 const ForgotPassword = lazy(() => import('./pages/management/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/management/auth/ResetPassword'));
+const VerifyEmail = lazy(() => import('./pages/management/auth/VerifyEmail'));
+const EmailVerificationSent = lazy(() => import('./pages/management/auth/EmailVerificationSent'));
 
 // Admin Pages (lazy loaded)
 const AdminDashboard = lazy(() => import('./pages/management/admin/Dashboard'));
+const ArchivedBookingDetails = lazy(() => import('@/pages/management/admin/ArchivedBookingDetails'));
 const ManageStudents = lazy(() => import('./pages/management/admin/ManageStudents'));
 const ManageRooms = lazy(() => import('./pages/management/admin/ManageRooms'));
 const ManageBookings = lazy(() => import('./pages/management/admin/ManageBookings'));
@@ -45,6 +49,7 @@ const AdminManagement = lazy(() => import('@/pages/management/admin/super/AdminM
 const PublicContentEditor = lazy(() => import('@/pages/management/admin/super/PublicContentEditor'));
 const EmergencyControls = lazy(() => import('@/pages/management/admin/super/EmergencyControls'));
 const AdminProfile = lazy(() => import('@/pages/management/admin/Profile'));
+const BookingDetails = lazy(() => import('./pages/management/admin/BookingDetails'));
 
 // Student Pages (lazy loaded)
 const StudentDashboard = lazy(() => import('@/pages/management/student/Dashboard'));
@@ -104,6 +109,12 @@ const DebugLogger: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 // Main App component
 function App() {
+  // Register emergency logout handler to avoid circular imports in api/config
+  useEffect(() => {
+    registerEmergencyLogoutHandler(() => {
+      store.dispatch(logout());
+    });
+  }, []);
   return (
     <Provider store={store}>
       <Router
@@ -194,6 +205,10 @@ function App() {
                       <ResetPassword />
                     </Suspense>
                   } />
+                  {/* Add: email verification routes */}
+                  <Route path="verify-email/:token" element={<VerifyEmail />} />
+                  <Route path="verify-email" element={<VerifyEmail />} />
+                  <Route path="verify-email/sent" element={<EmailVerificationSent />} />
                 </Route>
 
                 {/* Protected Routes - Admin */}
@@ -215,6 +230,11 @@ function App() {
                       <ManageStudents />
                     </Suspense>
                   } />
+                  <Route path="students/:studentId" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <StudentProfile />
+                    </Suspense>
+                  } />
                   <Route path="rooms" element={
                     <Suspense fallback={<PageLoader />}>
                       <ManageRooms />
@@ -225,6 +245,22 @@ function App() {
                       <ManageBookings />
                     </Suspense>
                   } />
+                  <Route path="bookings/p/:publicId" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <BookingDetails />
+                    </Suspense>
+                  } />
+                  <Route path="bookings/:id" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <BookingDetails />
+                    </Suspense>
+                  } />
+                  <Route path="students/:studentId/bookings/archived/p/:publicId" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <ArchivedBookingDetails />
+                    </Suspense>
+                  } />
+                  
                   <Route path="settings" element={
                     <Suspense fallback={<PageLoader />}>
                       <Settings />
@@ -266,7 +302,7 @@ function App() {
                       <StudentLayout />
                     </ProtectedRoute>
                   }
-                >
+                 >
                   <Route index element={
                     <Suspense fallback={<PageLoader />}>
                       <StudentDashboard />
@@ -277,7 +313,7 @@ function App() {
                       <AvailableRooms />
                     </Suspense>
                   } />
-                  <Route path="rooms/:id" element={
+                  <Route path="rooms/p/:roomPid" element={
                     <Suspense fallback={<PageLoader />}>
                       <RoomDetails />
                     </Suspense>
@@ -308,3 +344,4 @@ function App() {
 }
 
 export default App;
+

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
 const roomSchema = new mongoose.Schema({
   roomNumber: {
@@ -28,6 +29,12 @@ const roomSchema = new mongoose.Schema({
     default: 0,
     min: 0, 
     max:4
+  },
+  publicId: {
+    type: String,
+    unique: true,
+    index: true,
+    sparse: true
   }
 }, {
   timestamps: true,
@@ -55,6 +62,9 @@ roomSchema.virtual('bookings', {
   justOne: false
 });
 
+// Ensure unique index on publicId
+roomSchema.index({ publicId: 1 }, { unique: true, sparse: true });
+
 // Method to update occupancy
 roomSchema.methods.updateOccupancy = async function() {
   const RoomAssignment = mongoose.model('RoomAssignment');
@@ -67,5 +77,13 @@ roomSchema.methods.updateOccupancy = async function() {
   this.isAvailable = activeAssignments < this.capacity;
   return this.save();
 };
+
+// Generate publicId if missing
+roomSchema.pre('save', function(next) {
+  if (!this.publicId) {
+    this.publicId = uuidv4();
+  }
+  next();
+});
 
 module.exports = mongoose.model('Room', roomSchema);

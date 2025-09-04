@@ -35,10 +35,11 @@ interface NoticeForm {
   message: string;
 }
 
+// Settings component
 const Settings: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { settings, loading } = useSelector((state: RootState) => state.settings);
-  const { socket } = useSocket(); // Add this line
+  const { socket } = useSocket();
   const [formData, setFormData] = useState<SettingsFormData>({
     bookingPortalEnabled: false,
     bookingPortalOpenDateTime: '',
@@ -47,41 +48,86 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('booking');
   const [hasChanges, setHasChanges] = useState(false);
   
-  // Add notice form state
-  // Add to the state section (around line 50)
+  // Get current user and compute super admin flag
+  const { user } = useSelector((state: RootState) => state.auth);
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  // Academic period state
+  const [academicPeriod, setAcademicPeriod] = useState<any>(null);
+  const [loadingAcademic, setLoadingAcademic] = useState<boolean>(false);
+  const [transitioning, setTransitioning] = useState<boolean>(false);
+
+  // Notice form state
   const [noticeForm, setNoticeForm] = useState({
     subject: '',
     message: '',
-    attachment: null as File | null // Add this line
+    attachment: null as File | null
   });
   const [sendingNotice, setSendingNotice] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
+  // Define tabs
   const tabs = [
     { id: 'booking', name: 'Booking Portal', icon: CalendarIcon },
     { id: 'send-notice', name: 'Send Notice', icon: EnvelopeIcon },
     { id: 'general', name: 'General', icon: CogIcon },
+    ...(isSuperAdmin ? [{ id: 'academic', name: 'Academic Period', icon: CalendarIcon }] : []),
   ];
 
-  useEffect(() => {
-    dispatch(fetchSettings());
-  }, [dispatch]);
+  // Fetch academic period function
+  const fetchAcademicPeriod = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      setLoadingAcademic(true);
+      const res = await api.get('/academic/settings');
+      setAcademicPeriod(res.data);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to load academic period');
+    } finally {
+      setLoadingAcademic(false);
+    }
+  };
 
+  // Handle semester transition
+  const handleTransitionSemester = async () => {
+    if (transitioning) return;
+    const confirmed = window.confirm(
+      'This action will close the current semester, mark active bookings as inactive, and advance the academic period.\n\nDo you want to proceed?'
+    );
+    if (!confirmed) return;
+
+    setTransitioning(true);
+    try {
+      const res = await api.post('/academic/transition-semester');
+      const message =
+        res?.data?.message ||
+        `Semester transitioned successfully to ${res?.data?.to || 'next period'}.`;
+      toast.success(message);
+      await fetchAcademicPeriod();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to transition semester');
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  // Format date for input
   const formatDateForInput = (dateString: string): string => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return date.toISOString().slice(0, 16);
   };
 
+  // Create form data from settings
   const createFormDataFromSettings = (settings: any): SettingsFormData => ({
     bookingPortalEnabled: settings.bookingPortalEnabled ?? false,
     bookingPortalOpenDateTime: formatDateForInput(settings.bookingPortalOpenDateTime) ?? '',
     bookingPortalCloseDateTime: formatDateForInput(settings.bookingPortalCloseDateTime) ?? '',
   });
-  
 
-    // Add validation function after the handleChange function
-    const validateBookingDates = (): string | null => {
+  // Validate booking dates
+  const validateBookingDates = (): string | null => {
     const { bookingPortalOpenDateTime, bookingPortalCloseDateTime } = formData;
     
     // Both dates are required
@@ -113,17 +159,20 @@ const Settings: React.FC = () => {
     
     return null;
   };
-  useEffect(() => {
-    if (settings) {
-      setFormData(createFormDataFromSettings(settings));
-      setHasChanges(false);
-    }
-  }, [settings]);
 
-  
-  // Add loading state for reset
-  const [resetting, setResetting] = useState(false);
-  
+  // Handle form changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
+    }));
+    setHasChanges(true);
+  };
+
+  // Handle reset
   const handleReset = async () => {
     if (settings) {
       setResetting(true);
@@ -136,55 +185,13 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const checked = (e.target as HTMLInputElement).checked;
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
-    }));
-    setHasChanges(true);
-  };
-
-  // Add socket listener for real-time updates
-  useEffect(() => {
-    if (socket) {
-      const handleSettingsUpdate = (updatedSettings: any) => {
-        // Only update form data if dates were actually reset or if it's a full settings update
-        if (updatedSettings.datesReset) {
-          // Full reset - clear the dates
-          setFormData(createFormDataFromSettings(updatedSettings));
-          setHasChanges(false);
-          toast.success('Portal schedule completed - dates have been reset');
-        } else if (updatedSettings.statusOnly) {
-          // Status-only change - preserve existing dates
-          setFormData(prev => ({
-            ...prev,
-            bookingPortalEnabled: updatedSettings.bookingPortalEnabled
-          }));
-        } else if (!updatedSettings.reason) {
-          // Manual settings update - update everything
-          setFormData(createFormDataFromSettings(updatedSettings));
-          setHasChanges(false);
-        }
-      };
-
-      socket.on('settings-updated', handleSettingsUpdate);
-      socket.on('portal-status-changed', handleSettingsUpdate);
-
-      return () => {
-        socket.off('settings-updated', handleSettingsUpdate);
-        socket.off('portal-status-changed', handleSettingsUpdate);
-      };
-    }
-  }, [socket]);
-
+  // Handle form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSaveClick();
   };
 
+  // Save settings
   const onSaveClick = async () => {
     if (!hasChanges || saving) return;
     
@@ -212,19 +219,19 @@ const Settings: React.FC = () => {
     }
   };
 
-  // Add notice form handlers
+  // Handle notice form changes
   const handleNoticeChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNoticeForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // Add new function for file handling
+  // Handle file changes
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setNoticeForm(prev => ({ ...prev, attachment: file }));
   };
 
-  // Update the handleSendNotice function (around line 119)
+  // Send notice
   const handleSendNotice = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -272,6 +279,57 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Effects
+  useEffect(() => {
+    dispatch(fetchSettings());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      fetchAcademicPeriod();
+    }
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (settings) {
+      setFormData(createFormDataFromSettings(settings));
+      setHasChanges(false);
+    }
+  }, [settings]);
+
+  // Socket listener for real-time updates
+  useEffect(() => {
+    if (socket) {
+      const handleSettingsUpdate = (updatedSettings: any) => {
+        // Only update form data if dates were actually reset or if it's a full settings update
+        if (updatedSettings.datesReset) {
+          // Full reset - clear the dates
+          setFormData(createFormDataFromSettings(updatedSettings));
+          setHasChanges(false);
+          toast.success('Portal schedule completed - dates have been reset');
+        } else if (updatedSettings.statusOnly) {
+          // Status-only change - preserve existing dates
+          setFormData(prev => ({
+            ...prev,
+            bookingPortalEnabled: updatedSettings.bookingPortalEnabled
+          }));
+        } else if (!updatedSettings.reason) {
+          // Manual settings update - update everything
+          setFormData(createFormDataFromSettings(updatedSettings));
+          setHasChanges(false);
+        }
+      };
+
+      socket.on('settings-updated', handleSettingsUpdate);
+      socket.on('portal-status-changed', handleSettingsUpdate);
+
+      return () => {
+        socket.off('settings-updated', handleSettingsUpdate);
+        socket.off('portal-status-changed', handleSettingsUpdate);
+      };
+    }
+  }, [socket]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen space-x-4">
@@ -301,7 +359,7 @@ const Settings: React.FC = () => {
         )}
       </div>
 
-      {/* Settings Navigation */}
+      {/* Tabs */}
       <Card variant="glass" className="p-6">
         <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex space-x-8 overflow-x-auto">
@@ -326,14 +384,11 @@ const Settings: React.FC = () => {
         </div>
       </Card>
 
-      {/* Settings Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* Booking Portal Settings */}
-        
+      {/* Booking Tab */}
       {activeTab === 'booking' && (
-        <Card variant="glass" className="p-6">
-          <div className="flex items-center space-x-3 mb-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Card variant="glass" className="p-6">
+            <div className="flex items-center space-x-3 mb-6">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                 <CalendarIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
@@ -346,49 +401,48 @@ const Settings: React.FC = () => {
                 </p>
               </div>
             </div>
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center space-x-3 mb-3">
-              <ClockIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                Automatic Scheduling Status
-              </h4>
-            </div>
-            <div className="text-sm text-blue-800 dark:text-blue-300 space-y-2">
-              <p>
-                <span className="font-medium">Portal Status:</span> 
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                  formData.bookingPortalEnabled 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                }`}>
-                  {formData.bookingPortalEnabled ? 'Open' : 'Closed'}
-                </span>
-              </p>
-              {formData.bookingPortalOpenDateTime && (
-                <div className="text-xs space-y-1">
-                  <p><span className="font-medium">Scheduled Open/Activation:</span> {new Date(formData.bookingPortalOpenDateTime).toLocaleString()}</p>
-                  {formData.bookingPortalCloseDateTime ? (
-                    <p><span className="font-medium">Scheduled Close:</span> {new Date(formData.bookingPortalCloseDateTime).toLocaleString()}</p>
-                  ) : (
-                    <p className="text-amber-600 dark:text-amber-400"><span className="font-medium">⚡ One-time activation:</span> Portal will open and stay open</p>
-                  )}
+            
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center space-x-3 mb-3">
+                <ClockIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h4 className="text-sm font-medium text-blue-900 dark:text-blue-400">
+                  Automatic Scheduling Status
+                </h4>
+              </div>
+              <div className="text-sm text-blue-800 dark:text-blue-300 space-y-2">
+                <p>
+                  <span className="font-medium">Portal Status:</span>
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs ${formData.bookingPortalEnabled
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
+                    {formData.bookingPortalEnabled ? 'Open' : 'Closed'}
+                  </span>
+                </p>
+                {formData.bookingPortalOpenDateTime && (
+                  <div className="text-xs space-y-1">
+                    <p><span className="font-medium">Scheduled Open/Activation:</span> {new Date(formData.bookingPortalOpenDateTime).toLocaleString()}</p>
+                    {formData.bookingPortalCloseDateTime ? (
+                      <p><span className="font-medium">Scheduled Close:</span> {new Date(formData.bookingPortalCloseDateTime).toLocaleString()}</p>
+                    ) : (
+                      <p className="text-amber-600 dark:text-amber-400"><span className="font-medium">⚡ One-time activation:</span> Portal will open and stay open</p>
+                    )}
+                  </div>
+                )}
+
+                {!formData.bookingPortalOpenDateTime && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400">No schedule set - portal will remain in current state</p>
+                )}
+
+                <div className="mt-3 p-2 bg-blue-100 dark:bg-blue-800/30 rounded text-xs">
+                  <p className="font-medium text-blue-900 dark:text-blue-200">Scheduling Options:</p>
+                  <ul className="text-blue-700 dark:text-blue-300 mt-1 space-y-1">
+                    <li>• <strong>Future Activation:</strong> Set only open date/time for one-time portal activation</li>
+                    <li>• <strong>Scheduled Period:</strong> Set both open and close times for automatic open/close cycle</li>
+                    <li>• <strong>Auto Reset:</strong> Dates reset after completion</li>
+                  </ul>
                 </div>
-              )}
-              
-              {!formData.bookingPortalOpenDateTime && (
-                <p className="text-xs text-gray-600 dark:text-gray-400">No schedule set - portal will remain in current state</p>
-              )}
-              
-              <div className="mt-3 p-2 bg-blue-100 dark:bg-blue-800/30 rounded text-xs">
-                <p className="font-medium text-blue-900 dark:text-blue-200">Scheduling Options:</p>
-                <ul className="text-blue-700 dark:text-blue-300 mt-1 space-y-1">
-                  <li>• <strong>Future Activation:</strong> Set only open date/time for one-time portal activation</li>
-                  <li>• <strong>Scheduled Period:</strong> Set both open and close times for automatic open/close cycle</li>
-                  <li>• <strong>Auto Reset:</strong> Dates reset after completion</li>
-                </ul>
               </div>
             </div>
-           </div>
 
             <div className="space-y-6 mt-6">
               {/* Portal Status (Read-only) */}
@@ -404,11 +458,9 @@ const Settings: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <span className={`ml-2 px-3 py-1 rounded-full text-xs font-medium ${
-                  formData.bookingPortalEnabled 
+                <span className={`ml-2 px-3 py-1 rounded-full text-xs font-medium ${formData.bookingPortalEnabled
                     ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                }`}>
+                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
                   {formData.bookingPortalEnabled ? 'Open' : 'Closed'}
                 </span>
               </div>
@@ -417,7 +469,7 @@ const Settings: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Portal Opens 
+                    Portal Opens
                   </label>
                   <div className="relative">
                     <ClockIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -428,8 +480,7 @@ const Settings: React.FC = () => {
                       onChange={handleChange}
                       required
                       min={new Date().toISOString().slice(0, 16)}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    />
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Set future date/time to automatically enable portal
@@ -438,7 +489,7 @@ const Settings: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Portal Closes 
+                    Portal Closes
                   </label>
                   <div className="relative">
                     <ClockIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -449,8 +500,7 @@ const Settings: React.FC = () => {
                       onChange={handleChange}
                       required
                       min={formData.bookingPortalOpenDateTime || new Date().toISOString().slice(0, 16)}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    />
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Set future date/time to automatically disable portal
@@ -459,208 +509,258 @@ const Settings: React.FC = () => {
               </div>
             </div>
           </Card>
-        )}
-      </form>
+        </form>
+      )}
 
-      {/* Enhanced Scheduling Information */}
-        {/* Send Notice Tab */}
-        {activeTab === 'send-notice' && (
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <EnvelopeIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Send Notice to All Students
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Send important notices and announcements to all students via email
-                </p>
-              </div>
+      {/* Send Notice Tab */}
+      {activeTab === 'send-notice' && (
+        <Card variant="glass" className="p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <EnvelopeIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Send Notice to All Students
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Send important notices and announcements to all students via email
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Subject Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Subject
+              </label>
+              <input
+                type="text"
+                name="subject"
+                value={noticeForm.subject}
+                onChange={handleNoticeChange}
+                placeholder="Enter notice subject"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                required
+              />
             </div>
 
-            <div className="space-y-6">
-              {/* Subject Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Subject
-                </label>
+            {/* Message Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Message
+              </label>
+              <textarea
+                name="message"
+                value={noticeForm.message}
+                onChange={handleNoticeChange}
+                placeholder="Enter your notice message here..."
+                rows={10}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-vertical"
+                required
+              />
+            </div>
+
+            {/* File Attachment Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Attachment (Optional)
+              </label>
+              <div className="relative">
                 <input
-                  type="text"
-                  name="subject"
-                  value={noticeForm.subject}
-                  onChange={handleNoticeChange}
-                  placeholder="Enter notice subject"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  required
+                  type="file"
+                  onChange={handleFileChange}
+                  accept=".pdf,.doc,.docx"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400"
                 />
-              </div>
-
-              {/* Message Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Message
-                </label>
-                <textarea
-                  name="message"
-                  value={noticeForm.message}
-                  onChange={handleNoticeChange}
-                  placeholder="Enter your notice message here..."
-                  rows={10}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-vertical"
-                  required
-                />
-              </div>
-
-              {/* File Attachment Field - ADD THIS */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Attachment (Optional)
-                </label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    onChange={handleFileChange}
-                    accept=".pdf,.doc,.docx"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400"
-                  />
-                  {noticeForm.attachment && (
-                    <div className="mt-2 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                        </svg>
-                        <span className="text-sm text-blue-700 dark:text-blue-300">
-                          {noticeForm.attachment.name} ({(noticeForm.attachment.size / 1024 / 1024).toFixed(2)} MB)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setNoticeForm(prev => ({ ...prev, attachment: null }))}
-                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                {noticeForm.attachment && (
+                  <div className="mt-2 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                      <span className="text-sm text-blue-700 dark:text-blue-300">
+                        {noticeForm.attachment.name} ({(noticeForm.attachment.size / 1024 / 1024).toFixed(2)} MB)
+                      </span>
                     </div>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Supported formats: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG (Max: 10MB)
-                </p>
+                    <button
+                      type="button"
+                      onClick={() => setNoticeForm(prev => ({ ...prev, attachment: null }))}
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
-
-              {/* Send Button */}
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setNoticeForm({ subject: '', message: '', attachment: null })}
-                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                >
-                  Clear Form
-                </button>
-                <Button
-                  type="button"
-                  onClick={handleSendNotice}
-                  disabled={sendingNotice || !noticeForm.subject.trim() || !noticeForm.message.trim()}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center space-x-2"
-                >
-                  {sendingNotice ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Sending...</span>
-                    </>
-                  ) : (
-                    <>
-                      <PaperAirplaneIcon className="w-4 h-4" />
-                      <span>Send Notice to All Students</span>
-                    </>
-                  )}
-                </Button>
-              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Supported formats: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG (Max: 10MB)
+              </p>
             </div>
 
-            {/* Info Box */}
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div className="text-sm text-blue-700 dark:text-blue-300">
-                  <p className="font-medium mb-1">Notice Information:</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>This notice will be sent to all active students</li>
-                    <li>Students' email addresses are protected (sent via BCC)</li>
-                    <li>The notice will appear with official hostel branding</li>
-                    <li>Optional attachments will be included in the email</li>
-                    <li>Make sure your message is clear and professional</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* General Settings */}
-        {activeTab === 'general' && (
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <CogIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  General Settings
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  System-wide configuration options
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div>
-                  <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    System Information
-                  </h3>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Additional general settings will be available in future updates. Current settings cover the core functionality of the hostel management system.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Action Buttons - Only show for tabs that need form submission */}
-        {(activeTab === 'booking' || activeTab === 'rooms' || activeTab === 'notifications') && (
-          <Card variant="glass" className="p-6">
-            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <Button
+            {/* Send Button */}
+            <div className="flex justify-end space-x-3">
+              <button
                 type="button"
-                onClick={handleReset}
-                variant="secondary"
-                disabled={!hasChanges || saving || resetting}
-                isLoading={resetting}
-                loadingText="Resetting..."
+                onClick={() => setNoticeForm({ subject: '', message: '', attachment: null })}
+                className="px-6 py-3 border bg-red-600 border-gray-300 dark:border-gray-600 text-white dark:text-gray-300 rounded-lg hover:bg-red-400 dark:hover:bg-red-400 transition-colors duration-200"
               >
-                Reset Changes
-              </Button>
+                Clear
+              </button>
               <Button
                 type="button"
+                onClick={handleSendNotice}
                 variant="primary"
-                disabled={!hasChanges || saving || resetting}
-                isLoading={saving}
-                loadingText="Saving..."
-                onClick={onSaveClick}
+                isLoading={sendingNotice}
+                loadingText="Sending..."
+                disabled={sendingNotice || !noticeForm.subject.trim() || !noticeForm.message.trim()}
+                className="px-6 py-3"
               >
-                Save Settings
+                Send
               </Button>
             </div>
-          </Card>
-        )}
+          </div>
+
+          {/* Info Box */}
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="font-medium mb-1">Notice Information:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>This notice will be sent to all active students</li>
+                  <li>Students' email addresses are protected (sent via BCC)</li>
+                  <li>The notice will appear with official hostel branding</li>
+                  <li>Optional attachments will be included in the email</li>
+                  <li>Make sure your message is clear and professional</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* General Settings */}
+      {activeTab === 'general' && (
+        <Card variant="glass" className="p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <CogIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                General Settings
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                System-wide configuration options
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  System Information
+                </h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  Additional general settings will be available in future updates. Current settings cover the core functionality of the hostel management system.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Academic Period Tab */}
+      {activeTab === 'academic' && isSuperAdmin && (
+        <Card variant="glass" className="p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <CalendarIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Academic Period
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                View and manage academic year and semester
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="font-medium">Current Period: </span>
+                {loadingAcademic && <span>Loading...</span>}
+                {!loadingAcademic && academicPeriod && (
+                  <span>
+                    {academicPeriod.currentAcademicYear} — Semester {academicPeriod.currentSemester}
+                  </span>
+                )}
+                {!loadingAcademic && !academicPeriod && <span>Unavailable</span>}
+              </p>
+            </div>
+
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                Transitioning the semester will close the current semester, mark all active bookings
+                as inactive, and advance the academic period. This action may take several seconds
+                and cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex">
+              <Button
+                type="button"
+                onClick={handleTransitionSemester}
+                disabled={transitioning}
+                className={`inline-flex items-center gap-2 ${
+                  transitioning ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
+              >
+                {transitioning ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : null}
+                <span>{transitioning ? 'Transitioning...' : 'Transition Semester'}</span>
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Action Buttons - Only show for booking tab */}
+      {activeTab === 'booking' && (
+        <Card variant="glass" className="p-6">
+          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              type="button"
+              onClick={handleReset}
+              variant="secondary"
+              disabled={!hasChanges || saving || resetting}
+              isLoading={resetting}
+              loadingText="Resetting..."
+            >
+              Reset
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={!hasChanges || saving || resetting}
+              isLoading={saving}
+              loadingText="Saving..."
+              onClick={onSaveClick}
+            >
+              Save
+            </Button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };

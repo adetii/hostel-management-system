@@ -1,6 +1,7 @@
 const { Room, User, Booking, RoomAssignment } = require('../models');
 const { validationResult } = require('express-validator');
 const cacheService = require('../utils/cacheService');
+const { syncRoomOccupancy } = require('../utils/roomUtils'); // ADD: bring in the occupancy sync utility
 
 // @desc    Get all rooms
 // @route   GET /api/rooms
@@ -147,8 +148,10 @@ exports.createRoom = async (req, res) => {
     // ADD: Emit socket event for new room
     const io = req.app.get('io');
     if (io) {
+      // Inside createRoom success
       io.emit('room-created', {
         roomId: room._id,
+        roomPublicId: room.publicId,
         roomNumber: room.roomNumber,
         roomType: room.roomType,
         capacity: room.capacity,
@@ -209,8 +212,10 @@ exports.updateRoom = async (req, res) => {
     // ADD: Emit socket event for room update
     const io = req.app.get('io');
     if (io) {
+      // Inside updateRoom success
       io.emit('room-updated', {
         roomId: room._id,
+        roomPublicId: room.publicId,
         roomNumber: room.roomNumber,
         roomType: room.roomType,
         capacity: room.capacity,
@@ -345,5 +350,19 @@ exports.getRoomOccupants = async (req, res) => {
   } catch (error) {
     console.error('Get room occupants error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Sync all rooms' occupancy and availability
+// @route   POST /api/rooms/sync-occupancy
+// @access  Private/Admin
+exports.syncAllRoomsOccupancy = async (req, res) => {
+  try {
+    await syncRoomOccupancy();
+    await cacheService.invalidateRoomCaches();
+    return res.json({ message: 'Synchronized room occupancy and availability for all rooms' });
+  } catch (error) {
+    console.error('Sync rooms occupancy error:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

@@ -2,8 +2,12 @@ import axios from 'axios';
 import { getCsrfToken } from '@/utils/csrf';
 import { getOrCreateTabId } from '@/utils/tabId';
 import toast from 'react-hot-toast';
-import { store } from '@/store';
-import { logout } from '@/store/slices/authSlice';
+
+// Emergency logout handler to avoid circular imports
+let emergencyLogoutHandler: null | (() => void) = null;
+export function registerEmergencyLogoutHandler(handler: () => void) {
+  emergencyLogoutHandler = handler;
+}
 
 // Create base API instance
 const createApiInstance = () => {
@@ -80,10 +84,13 @@ api.interceptors.response.use(
     
     // Handle emergency lockdown 503 errors
     if (error.response?.status === 503 && error.response?.data?.emergencyLockdown) {
-    
-      // Force logout the user
-      store.dispatch(logout());
-      
+      // Invoke registered logout handler (avoids circular import with store/authSlice)
+      try {
+        emergencyLogoutHandler?.();
+      } catch {
+        // no-op
+      }
+
       // Show emergency lockdown message
       toast.error('Emergency lockdown activated. You have been logged out for security reasons. Please try again later.', {
         duration: 8000,
@@ -150,8 +157,7 @@ function getTTLForPath(path: string): number | null {
   if (/^\/rooms\/\d+$/i.test(path)) return TTL_SECONDS.room_details;
   if (/^\/rooms$/i.test(path)) return TTL_SECONDS.room_details;
 
-  if (/^\/bookings(\/\d+)?$/i.test(path)) return TTL_SECONDS.booking_history;
-
+  if (/^\/bookings(\/|$)/i.test(path) || /^\/bookings\/p\//i.test(path)) return TTL_SECONDS.booking_history;
   if (/^\/students\/\d+\/bookings$/i.test(path)) return TTL_SECONDS.booking_history;
   if (/^\/students\/\d+$/i.test(path)) return TTL_SECONDS.user_profiles;
   if (/^\/students$/i.test(path)) return TTL_SECONDS.user_lists;
@@ -186,8 +192,9 @@ function invalidateByPath(path: string) {
     patterns.push(/^\/rooms/i);
     patterns.push(/^\/rooms\/\d+\/occupants/i);
   }
-  if (/^\/bookings(\/|$)/i.test(path)) {
+  if (/^\/bookings(\/|$)/i.test(path) || /^\/bookings\/p\//i.test(path)) {
     patterns.push(/^\/bookings/i);
+    patterns.push(/^\/bookings\/p\//i);
     patterns.push(/^\/students\/\d+\/bookings/i);
     patterns.push(/^\/rooms\/\d+\/occupants/i);
     patterns.push(/^\/students\/\d+$/i);
@@ -217,7 +224,6 @@ function invalidateByPath(path: string) {
   for (const key of responseCache.keys()) {
     const [cachedPath] = key.split('|');
     if (patterns.some((re) => re.test(cachedPath))) {
-      console.log(`Invalidating cache key: ${key}`); // Debug log
       responseCache.delete(key);
     }
   }

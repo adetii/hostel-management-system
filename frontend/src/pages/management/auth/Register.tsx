@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { register } from '@/store/slices/authSlice';
@@ -59,7 +59,32 @@ const Register: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
- 
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: 'Weak', color: 'red' });
+
+  const calculatePasswordStrength = (password: string) => {
+  let score = 0;
+  if (password.length >= 6) score++;
+  if (/(?=.*[a-z])(?=.*[A-Z])/.test(password)) score++;
+  if (/(?=.*\d)/.test(password)) score++;
+  if (/(?=.*[!@#$%^&*])/.test(password)) score++;
+
+  const labels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+  const colors = ['red', 'red', 'yellow', 'blue', 'green'];
+
+  return {
+    score,
+    label: labels[score] || 'Very Weak',
+    color: colors[score] || 'red'
+  };
+};
+
+useEffect(() => {
+  if (formData.password) {
+    const strength = calculatePasswordStrength(formData.password);
+    setPasswordStrength(strength);
+  }
+}, [formData.password]);
+
   const steps = [
     {
       id: 1,
@@ -202,7 +227,7 @@ const Register: React.FC = () => {
           break;
         case 'password':
           if (!value.trim()) {
-            stepErrors.password = 'Password is required';
+            stepErrors.password = '';
           } else if (value.length < 6) {
             stepErrors.password = 'Password must be at least 6 characters';
           }
@@ -277,9 +302,12 @@ const Register: React.FC = () => {
     
     try {
       await dispatch(register({ ...formData, role: 'student' })).unwrap();
-      navigate('/management/login')
+      // Redirect to check-email page with email in query params for convenience
+      navigate(`/management/verify-email/sent?email=${encodeURIComponent(formData.email)}`);
     } catch (error: any) {
-      
+      console.error('Registration error:', error);
+      // Show error message to user
+      toast.error(error?.message || 'Registration failed. Please try again.');
     }
   };
 
@@ -400,6 +428,24 @@ const Register: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {fieldName === 'password' && value && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600">Password Strength:</span>
+              <span className={`text-xs font-medium text-${passwordStrength.color}-600`}>
+                {passwordStrength.label}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full bg-${passwordStrength.color}-500 transition-all duration-300`}
+                style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
         {error && isTouched && (
           <p className="text-xs text-red-500 flex items-center gap-1">
             <span className="w-1 h-1 bg-red-500 rounded-full"></span>
@@ -502,7 +548,7 @@ const Register: React.FC = () => {
       </div>
       
       {/* Register Form - Centered on mobile, right side on desktop */}
-      <div className="relative z-20 w-full lg:w-1/2 flex items-center justify-center mx-2 lg:mx-0 lg:mr-8 py-4 animate-slide-in-right">
+      <div className="relative z-20 w-full lg:w-1/2 max-h-fit flex items-center justify-center mx-2 lg:mx-0 lg:mr-8 py-4 animate-slide-in-right">
         <div className="w-full max-w-xs lg:max-w-md">
           <div className="bg-white rounded-2xl shadow-xl p-3 lg:p-6 animate-scale-in animation-delay-300 hover:shadow-2xl transition-all duration-500">
             {/* Logo/Header */}
@@ -575,14 +621,14 @@ const Register: React.FC = () => {
                     {steps[0].title}
                   </h3>
                   
-                  {/* Email Field */}
-                  <div className="space-y-1 lg:space-y-2 animate-slide-in-up animation-delay-200">
+                  {/* Email Field - Full Width */}
+                  <div className="space-y-1 animate-slide-in-up animation-delay-600">
                     <label className="block text-xs lg:text-sm font-medium text-gray-700">
-                      Email Address
+                      Email
                     </label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200 group-focus-within:text-blue-500">
-                        <EnvelopeIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+                        <LockClosedIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
                       </div>
                       <input
                         type="email"
@@ -590,99 +636,14 @@ const Register: React.FC = () => {
                         value={formData.email}
                         onChange={handleChange}
                         onBlur={() => handleBlur('email')}
-                        placeholder="Enter your email"
+                        placeholder="Enter email"
                         className={`
-                          block w-full pl-7 lg:pl-10 pr-3 lg:pr-4 py-1.5 lg:py-3 border rounded-lg text-xs lg:text-base
+                          block w-full pl-7 lg:pl-10 pr-8 lg:pr-12 py-1 lg:py-2 border rounded-lg text-xs lg:text-sm
                           bg-white border-gray-300 text-gray-900 placeholder-gray-500
                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                           transition-all duration-300 transform focus:scale-105
                           ${
                             errors.email && touchedFields.email
-                              ? 'border-red-500 focus:ring-red-500 animate-shake'
-                              : 'hover:border-gray-400 hover:shadow-md'
-                          }
-                        `}
-                      />
-                    </div>
-                    {errors.email && touchedFields.email && (
-                      <p className="text-xs text-red-500 flex items-center gap-1 animate-fade-in">
-                        <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse"></span>
-                        {errors.email}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Password Field */}
-                  <div className="space-y-1 lg:space-y-2 animate-slide-in-up animation-delay-400">
-                    <label className="block text-xs lg:text-sm font-medium text-gray-700">
-                      Password
-                    </label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200 group-focus-within:text-blue-500">
-                        <LockClosedIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
-                      </div>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        name="password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        onBlur={() => handleBlur('password')}
-                        placeholder="Create a password"
-                        className={`
-                          block w-full pl-7 lg:pl-10 pr-8 lg:pr-12 py-1.5 lg:py-3 border rounded-lg text-xs lg:text-base
-                          bg-white border-gray-300 text-gray-900 placeholder-gray-500
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                          transition-all duration-300 transform focus:scale-105
-                          ${
-                            errors.password && touchedFields.password
-                              ? 'border-red-500 focus:ring-red-500 animate-shake'
-                              : 'hover:border-gray-400 hover:shadow-md'
-                          }
-                        `}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center hover:scale-110 transition-transform duration-200"
-                      >
-                        {showPassword ? (
-                          <EyeSlashIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
-                        ) : (
-                          <EyeIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
-                        )}
-                      </button>
-                    </div>
-                    {errors.password && touchedFields.password && (
-                      <p className="text-xs text-red-500 flex items-center gap-1 animate-fade-in">
-                        <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse"></span>
-                        {errors.password}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Confirm Password Field */}
-                  <div className="space-y-1 lg:space-y-2 animate-slide-in-up animation-delay-600">
-                    <label className="block text-xs lg:text-sm font-medium text-gray-700">
-                      Confirm Password
-                    </label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200 group-focus-within:text-blue-500">
-                        <LockClosedIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
-                      </div>
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        onBlur={() => handleBlur('confirmPassword')}
-                        placeholder="Confirm your password"
-                        className={`
-                          block w-full pl-7 lg:pl-10 pr-8 lg:pr-12 py-1.5 lg:py-3 border rounded-lg text-xs lg:text-base
-                          bg-white border-gray-300 text-gray-900 placeholder-gray-500
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                          transition-all duration-300 transform focus:scale-105
-                          ${
-                            errors.confirmPassword && touchedFields.confirmPassword
                               ? 'border-red-500 focus:ring-red-500 animate-shake'
                               : 'hover:border-gray-400 hover:shadow-md'
                           }
@@ -700,13 +661,130 @@ const Register: React.FC = () => {
                         )}
                       </button>
                     </div>
-                    {errors.confirmPassword && touchedFields.confirmPassword && (
+                    {errors.email && touchedFields.email && (
                       <p className="text-xs text-red-500 flex items-center gap-1 animate-fade-in">
                         <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse"></span>
-                        {errors.confirmPassword}
+                        {errors.email}
                       </p>
-                    )}
+                )  }
+            </div>
+
+            {/* Password Fields Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
+              {/* Password Field */}
+              <div className="space-y-1 animate-slide-in-up animation-delay-600">
+                <label className="block text-xs lg:text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200 group-focus-within:text-blue-500">
+                    <LockClosedIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
                   </div>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    onBlur={() => handleBlur('password')}
+                    placeholder="Create password"
+                    className={`
+                      block w-full pl-7 lg:pl-10 pr-8 lg:pr-12 py-1 lg:py-2 border rounded-lg text-xs lg:text-sm
+                      bg-white border-gray-300 text-gray-900 placeholder-gray-500
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                      transition-all duration-300 transform focus:scale-105
+                      ${
+                        errors.password && touchedFields.password
+                          ? 'border-red-500 focus:ring-red-500 animate-shake'
+                          : 'hover:border-gray-400 hover:shadow-md'
+                      }
+                    `}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:scale-110 transition-transform duration-200"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeSlashIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
+                    ) : (
+                      <EyeIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
+                    )}
+                  </button>
+                </div>
+                {errors.password && touchedFields.password && (
+                  <p className="text-xs text-red-500 flex items-center gap-1 animate-fade-in">
+                    <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse"></span>
+                    {errors.password}
+                  </p>
+                )}
+              </div>
+
+              {/* Confirm Password Field */}
+              <div className="space-y-1 animate-slide-in-up animation-delay-600">
+                <label className="block text-xs lg:text-sm font-medium text-gray-700">
+                  Confirm Password
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200 group-focus-within:text-blue-500">
+                    <LockClosedIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+                  </div>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    onBlur={() => handleBlur('confirmPassword')}
+                    placeholder="Confirm password"
+                    className={`
+                      block w-full pl-7 lg:pl-10 pr-8 lg:pr-12 py-1 lg:py-2 border rounded-lg text-xs lg:text-sm
+                      bg-white border-gray-300 text-gray-900 placeholder-gray-500
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                      transition-all duration-300 transform focus:scale-105
+                      ${
+                        errors.confirmPassword && touchedFields.confirmPassword
+                          ? 'border-red-500 focus:ring-red-500 animate-shake'
+                          : 'hover:border-gray-400 hover:shadow-md'
+                      }
+                    `}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:scale-110 transition-transform duration-200"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeSlashIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
+                    ) : (
+                      <EyeIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
+                    )}
+                  </button>
+                </div>
+                {errors.confirmPassword && touchedFields.confirmPassword && (
+                  <p className="text-xs text-red-500 flex items-center gap-1 animate-fade-in">
+                    <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse"></span>
+                    {errors.confirmPassword}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Password Strength Indicator - Full Width */}
+            {formData.password && (
+              <div className="space-y-2 animate-slide-in-up animation-delay-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Password Strength:</span>
+                  <span className={`text-xs font-medium text-${passwordStrength.color}-600`}>
+                    {passwordStrength.label}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full bg-${passwordStrength.color}-500 transition-all duration-300`}
+                    style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
                 </div>
               )}
 
@@ -773,7 +851,7 @@ const Register: React.FC = () => {
                   >
                     {loading ? (
                       <>
-                        <div className="w-3 h-3 lg:w-4 lg:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                         <span className="animate-pulse">Creating...</span>
                       </>
                     ) : (

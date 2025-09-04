@@ -34,32 +34,14 @@ export const fetchRooms = createAsyncThunk('room/fetchRooms', async () => {
   return response.data;
 });
 
-export const fetchRoomById = createAsyncThunk(
-  'room/fetchRoomById',
-  async (id: string) => {
-    const response = await cachedGet(`/rooms/${id}`);
-    return response.data;
-  }
-);
+const isObjectId = (v: string) => /^[a-f\d]{24}$/i.test(v);
 
-export const bookRoom = createAsyncThunk(
-  'room/bookRoom',
-  async ({ roomId, termsAgreed }: Pick<BookRoomPayload, 'roomId' | 'termsAgreed'>, { rejectWithValue }) => {
-    console.log('Booking room with data:', { roomId, termsAgreed });
-    try {
-      const response = await api.post('/bookings', {
-        roomId,
-        termsAgreed,
-      });
-      return response.data;
-    } catch (error: any) {
-      console.error('Booking error details:', error.response?.data);
-      // Extract the error message from the backend response
-      const errorMessage = error.response?.data?.message || 'Failed to book room. Please try again.';
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
+// Fetch room by idOrPublicId
+export const fetchRoomById = createAsyncThunk('room/fetchById', async (id: string) => {
+  const path = isObjectId(id) ? `/rooms/${id}` : `/rooms/p/${id}`;
+  const response = await cachedGet(path);
+  return response.data;
+});
 
 export const updateRoomStatus = createAsyncThunk(
   'rooms/updateStatus',
@@ -68,12 +50,30 @@ export const updateRoomStatus = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await api.put(`/rooms/${roomId}/status`, { status });
+      const path = isObjectId(roomId) ? `/rooms/${roomId}/status` : `/rooms/p/${roomId}/status`;
+      const response = await api.put(path, { status });
       return response.data;
     } catch (error: any) {
       return rejectWithValue(
         error.response?.data?.message || 'Failed to update room status'
       );
+    }
+  }
+);
+
+export const bookRoom = createAsyncThunk(
+  'room/bookRoom',
+  async ({ roomId, termsAgreed }: Pick<BookRoomPayload, 'roomId' | 'termsAgreed'>, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/bookings', {
+        roomId,
+        termsAgreed,
+      });
+      return response.data;
+    } catch (error: any) {
+      // Extract the error message from the backend response
+      const errorMessage = error.response?.data?.message || 'Failed to book room. Please try again.';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -97,7 +97,8 @@ export const fetchRoomOccupants = createAsyncThunk(
   'room/fetchRoomOccupants',
   async (roomId: string, { rejectWithValue }) => {
     try {
-      const response = await cachedGet(`/rooms/${roomId}/occupants`);
+      const path = isObjectId(roomId) ? `/rooms/${roomId}/occupants` : `/rooms/p/${roomId}/occupants`;
+      const response = await cachedGet(path);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(
@@ -126,7 +127,8 @@ export const deleteRoom = createAsyncThunk(
   'rooms/deleteRoom',
   async (roomId: string, { rejectWithValue }) => {
     try {
-      await api.delete(`/rooms/${roomId}`);
+      const path = isObjectId(roomId) ? `/rooms/${roomId}` : `/rooms/p/${roomId}`;
+      await api.delete(path);
       return roomId;
     } catch (error: any) {
       return rejectWithValue(

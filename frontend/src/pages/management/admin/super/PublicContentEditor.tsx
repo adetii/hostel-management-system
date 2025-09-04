@@ -44,8 +44,8 @@ interface ContentVersion {
   content: string;
   updatedBy: number;
   createdAt: string;
-  updatedByAdmin: {
-    fullName: string;
+  updatedByAdmin?: {
+    fullName?: string;
   };
 }
 
@@ -176,15 +176,9 @@ const PublicContentEditor: React.FC = () => {
     if (!editingContent) return;
 
     setSaving(true);
-    console.log('Saving content:', {
-      id: editingContent.id,
-      formData,
-      url: `/super-admin/content/${editingContent.id}`
-    });
 
     try {
       const response = await api.put(`/super-admin/content/${editingContent.id}`, formData);
-      console.log('Save response:', response.data);
       toast.success('Content updated successfully');
 
       const updated = response.data?.content;
@@ -623,7 +617,7 @@ const PublicContentEditor: React.FC = () => {
                     >
                       {saving ? (
                         <span className="inline-flex items-center">
-                          <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                             Saving...
                         </span>
                       ) : (
@@ -700,7 +694,7 @@ const PublicContentEditor: React.FC = () => {
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 dark:text-white">{version.title}</h4>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Version {version.version} • {formatDate(version.createdAt)} • By {version.updatedByAdmin.fullName}
+                            Version {version.version} • {formatDate(version.createdAt)} • By {version.updatedByAdmin?.fullName || 'Unknown'}
                           </p>
                         </div>
                         <button
@@ -711,7 +705,7 @@ const PublicContentEditor: React.FC = () => {
                         >
                           {restoringVersionId === version.id ? (
                             <>
-                              <ArrowPathIcon className="h-4 w-4 mr-1 animate-spin" />
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                               Restoring...
                             </>
                           ) : (
@@ -731,7 +725,7 @@ const PublicContentEditor: React.FC = () => {
                 <div className="flex justify-end mt-4">
                   <button
                     onClick={() => setShowVersionHistory(false)}
-                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+                    className="w-full sm:w-auto px-4 py-2 border bg-red-600 rounded-md text-sm font-medium text-gray-700 hover:bg-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                   >
                     Close
                   </button>

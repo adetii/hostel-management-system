@@ -24,17 +24,19 @@ import {
   ChartBarIcon,
   TableCellsIcon,
   UserPlusIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 import { useSocket } from '@/contexts/SocketContext';
 import { toast } from 'react-hot-toast';
 import ExportButton from '@/components/management/common/ExportButton';
 import { exportBookingsToExcel, exportBookingsToPDF } from '@/utils/exportUtils';
 import api from '@/api/config';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Local interfaces for admin-assisted booking
 interface Student {
   id: number;
+  publicId?: string;
   full_name: string;
   email: string;
   programmeOfStudy?: string;
@@ -60,6 +62,7 @@ const ManageBookings: React.FC = () => {
   const { bookings, loading } = useSelector((state: RootState) => state.booking);
   const { rooms } = useSelector((state: RootState) => state.room);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Filters and view state
   const [searchTerm, setSearchTerm] = useState('');
@@ -322,10 +325,6 @@ const ManageBookings: React.FC = () => {
       (booking) => booking.status === 'confirmed' || booking.status === 'active'
     );
     exportBookingsToExcel(activeBookings, 'Active_Bookings_Report');
-  };
-
-  const handleExportIndividualBooking = (booking: Booking) => {
-    exportBookingsToPDF([booking], `Booking_${booking._id}_Report`);
   };
 
   // Admin-assisted booking modal helpers
@@ -669,6 +668,14 @@ const ManageBookings: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => navigate(`/management/admin/bookings/p/${booking.publicId}`)}
+                          leftIcon={<EyeIcon className="w-4 h-4" />}
+                        >
+                          View
+                        </Button>
+                        <Button
                           variant="primary"
                           size="sm"
                           onClick={() => handleEditBooking(booking)}
@@ -685,13 +692,7 @@ const ManageBookings: React.FC = () => {
                         >
                           Delete
                         </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleExportIndividualBooking(booking)}
-                        >
-                          Export
-                        </Button>
+                        
                       </div>
                     </td>
                   </tr>
@@ -765,6 +766,14 @@ const ManageBookings: React.FC = () => {
 
               <div className="flex space-x-2">
                 <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate(`/management/admin/bookings/p/${booking.publicId}`)}
+                  leftIcon={<EyeIcon className="w-4 h-4" />}
+                >
+                  View
+                </Button>
+                <Button
                   variant="primary"
                   size="sm"
                   onClick={() => handleEditBooking(booking)}
@@ -780,13 +789,6 @@ const ManageBookings: React.FC = () => {
                   leftIcon={<TrashIcon className="w-4 h-4" />}
                 >
                   Delete
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleExportIndividualBooking(booking)}
-                >
-                  Export
                 </Button>
               </div>
             </Card>

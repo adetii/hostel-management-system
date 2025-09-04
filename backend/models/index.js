@@ -3,6 +3,8 @@ const User = require('./User');
 const Admin = require('./Admin');
 const Room = require('./Room');
 const Booking = require('./Booking');
+const BookingArchive = require('./BookingArchive');
+const AcademicSettings = require('./AcademicSettings');
 const Settings = require('./Settings');
 const PasswordResetToken = require('./PasswordResetToken');
 const RoomAssignment = require('./RoomAssignment');
@@ -16,6 +18,8 @@ module.exports = {
   Admin,
   Room,
   Booking,
+  BookingArchive,
+  AcademicSettings,
   Settings,
   PasswordResetToken,
   RoomAssignment,

@@ -1,4 +1,4 @@
-const { Booking, Room, User, RoomAssignment } = require('../models');
+const { Booking, BookingArchive, Room, User, RoomAssignment, AcademicSettings } = require('../models');
 const { validationResult } = require('express-validator');
 const { syncRoomOccupancy } = require('../utils/roomUtils');
 const cacheService = require('../utils/cacheService');
@@ -42,8 +42,17 @@ exports.getBookingById = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Check if user is admin or the student who made the booking
-    if (req.user.role !== 'admin' && req.user.id !== booking.studentId.toString()) {
+    // Authorization: allow admins/super_admins or the student who owns the booking
+    const isAdminOrSuper = req.userRole === 'admin' || req.userRole === 'super_admin';
+    const currentUserId =
+      (req.userId && req.userId.toString()) ||
+      (req.user && (req.user._id?.toString?.() || req.user.id)) ||
+      null;
+    const bookingStudentId =
+      (booking.studentId && (booking.studentId._id ? booking.studentId._id.toString() : booking.studentId.toString())) ||
+      null;
+
+    if (!isAdminOrSuper && (!currentUserId || currentUserId !== bookingStudentId)) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -72,10 +81,16 @@ exports.createBooking = async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
-    // Get current occupancy
+    // Get current academic settings
+    const academicSettings = await AcademicSettings.getCurrent();
+    const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
+    // Get current occupancy with academic fields
     const currentAssignments = await RoomAssignment.countDocuments({
       roomId,
-      status: 'active'
+      status: 'active',
+      academicYear,
+      semester
     });
 
     // Check if room is full
@@ -83,10 +98,15 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Room is already at full capacity' });
     }
 
-    // Check if student already has an active booking
+    // Check if student already has an active booking with academic fields
     const existingBooking = await Booking.findOne({
       studentId: req.user.id,
       status: 'active',
+      $or: [
+        { academicYear, semester },
+        { academicYear: { $exists: false } },
+        { semester: { $exists: false } }
+      ]
     });
 
     if (existingBooking) {
@@ -106,10 +126,11 @@ exports.createBooking = async (req, res) => {
     if (currentAssignments > 0) {
       const existingOccupants = await RoomAssignment.find({
         roomId,
-        status: 'active'
+        status: 'active',
+        academicYear,
+        semester
       }).populate('studentId', 'gender');
     
-      // Check if any existing occupant has a different gender
       const hasGenderConflict = existingOccupants.some(
         assignment => assignment.studentId.gender !== currentUser.gender
       );
@@ -122,18 +143,23 @@ exports.createBooking = async (req, res) => {
       }
     }
 
-    // Create booking
+    // Create booking with academic fields
     const booking = await Booking.create({
       studentId: req.user.id,
       roomId,
       termsAgreed,
       status: 'active',
+      academicYear,
+      semester
     });
 
-    // Create room assignment
+    // Create room assignment with academic fields
     await RoomAssignment.create({
       roomId,
       studentId: req.user.id,
+      bookingId: booking._id,
+      academicYear,
+      semester,
       status: 'active'
     });
 
@@ -143,20 +169,22 @@ exports.createBooking = async (req, res) => {
     // Invalidate related caches
     await cacheService.invalidateRoomCaches();
     await cacheService.invalidateBookingCaches();
-    await cacheService.invalidateUserCaches(); // ensure /students/:id is fresh
+    await cacheService.invalidateUserCaches();
 
     // Enhanced socket events
     const io = req.app.get('io');
     if (io) {
-      // Notify admins
       io.to('admin-room').emit('new-booking', {
         bookingId: booking._id,
         studentName: currentUser.fullName,
         roomNumber: room.roomNumber,
-        studentId: req.user.id
+        studentId: req.user.id,
+        academicPeriod: `${academicYear} Semester ${semester}`
       });
       
-      // Notify all students about room availability change
+      // After creating a booking or changing room availability
+      // Ensure roomPublicId is included where we emit 'room-availability-changed'
+      const roomPublic = await Room.findById(roomId).select('publicId').lean();
       io.emit('room-availability-changed', {
         roomId: room._id,
         roomNumber: room.roomNumber,
@@ -164,14 +192,12 @@ exports.createBooking = async (req, res) => {
         currentOccupancy: room.currentOccupancy + 1
       });
       
-      // Notify the student who booked
       io.to(`user-${req.user.id}`).emit('booking-confirmed', {
         bookingId: booking._id,
         roomNumber: room.roomNumber,
         message: `Successfully booked Room ${room.roomNumber}`
       });
 
-      // Also notify student dashboard to refetch profile
       io.to(`user-${req.user.id}`).emit('booking-status-updated', {
         bookingId: booking._id,
         studentId: req.user.id,
@@ -179,7 +205,16 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    res.status(201).json(booking);
+    // Fetch the complete booking with relations for response
+    const completeBooking = await Booking.findById(booking._id)
+      .populate('studentId', 'fullName email')
+      .populate('roomId', 'roomNumber roomType capacity');
+
+    res.status(201).json({
+      booking: completeBooking,
+      message: 'Booking created successfully',
+      academicPeriod: `${academicYear} Semester ${semester}`
+    });
   } catch (error) {
     console.error('Create booking error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -460,7 +495,16 @@ exports.deleteBooking = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // Delete the room assignment
+    // Archive the booking before deletion
+    try {
+      await BookingArchive.archiveBooking(booking, req.user.id);
+      console.log(`Booking ${booking._id} archived successfully`);
+    } catch (archiveError) {
+      console.error('Archive booking error:', archiveError);
+      // Continue with deletion even if archiving fails
+    }
+
+    // Delete room assignment
     await RoomAssignment.deleteMany({
       roomId: booking.roomId,
       studentId: booking.studentId,
@@ -496,7 +540,7 @@ exports.deleteBooking = async (req, res) => {
       });
     }
 
-    res.json({ message: 'Booking deleted successfully' });
+    res.json({ message: 'Booking deleted and archived successfully' });
   } catch (error) {
     console.error('Delete booking error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -504,33 +548,91 @@ exports.deleteBooking = async (req, res) => {
 };
 
 // @desc    Clear all bookings
-// @route   DELETE /api/bookings
+// @route   DELETE /api/bookings/clear-all
 // @access  Private/Admin
 exports.clearAllBookings = async (req, res) => {
   try {
-    // Get all active bookings
-    const activeBookings = await Booking.find({ status: 'active' });
+    // Get current academic settings
+    const academicSettings = await AcademicSettings.getCurrent();
+    const { academicYear, semester } = academicSettings.getCurrentPeriod();
 
-    // Delete ALL room assignments (both active and inactive)
-    await RoomAssignment.deleteMany({});
+    // Get all active bookings for current academic period
+    const activeBookings = await Booking.find({ 
+      status: 'active',
+      $or: [
+        // Current academic period bookings
+        { academicYear, semester },
+        // Legacy bookings without academic fields
+        { academicYear: { $exists: false } },
+        { semester: { $exists: false } }
+      ]
+    });
 
-    // Get all rooms that had active bookings and sync their occupancy
-    const roomIds = [...new Set(activeBookings.map(booking => booking.roomId))];
-    for (const roomId of roomIds) {
-      await syncRoomOccupancy(roomId);
+    console.log(`Found ${activeBookings.length} active bookings to clear`);
+
+    // Archive all active bookings
+    let archivedCount = 0;
+    for (const booking of activeBookings) {
+      try {
+        await BookingArchive.archiveBooking(booking, req.user.id);
+        archivedCount++;
+      } catch (archiveError) {
+        console.error(`Failed to archive booking ${booking._id}:`, archiveError);
+        // Continue with other bookings
+      }
     }
 
-    // Delete all bookings
-    const deleteResult = await Booking.deleteMany({});
+    // Delete room assignments for current academic period
+    const deletedAssignments = await RoomAssignment.deleteMany({
+      $or: [
+        // Current academic period assignments
+        { academicYear, semester, status: 'active' },
+        // Legacy assignments without academic fields
+        { academicYear: { $exists: false }, status: 'active' },
+        { semester: { $exists: false }, status: 'active' }
+      ]
+    });
+
+    // Delete the bookings
+    const deleteResult = await Booking.deleteMany({
+      status: 'active',
+      $or: [
+        { academicYear, semester },
+        { academicYear: { $exists: false } },
+        { semester: { $exists: false } }
+      ]
+    });
+
+    // Re-sync room occupancy and availability for all rooms (ensures isAvailable is recalculated)
+    await syncRoomOccupancy();
 
     // Invalidate related caches
     await cacheService.invalidateRoomCaches();
     await cacheService.invalidateBookingCaches();
-    await cacheService.invalidateUserCaches(); // clear student caches too
+    await cacheService.invalidateUserCaches();
+
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.to('admin-room').emit('bookings-cleared', {
+        deletedCount: deleteResult.deletedCount,
+        archivedCount,
+        academicPeriod: `${academicYear} Semester ${semester}`
+      });
+
+      // Notify all students to refresh their booking status
+      io.emit('booking-status-updated', {
+        type: 'bulk-clear',
+        academicPeriod: `${academicYear} Semester ${semester}`
+      });
+    }
 
     res.json({ 
-      message: `Successfully cleared ${deleteResult.deletedCount} bookings and all room assignments`,
-      deletedCount: deleteResult.deletedCount 
+      message: `Successfully cleared ${deleteResult.deletedCount} bookings and ${deletedAssignments.deletedCount} room assignments`,
+      deletedBookings: deleteResult.deletedCount,
+      deletedAssignments: deletedAssignments.deletedCount,
+      archivedBookings: archivedCount,
+      academicPeriod: `${academicYear} Semester ${semester}`
     });
   } catch (error) {
     console.error('Clear all bookings error:', error);
@@ -538,8 +640,8 @@ exports.clearAllBookings = async (req, res) => {
   }
 };
 
-// @desc    Create booking for student (Admin only)
-// @route   POST /api/bookings/admin-create
+// @desc    Admin create booking for student
+// @route   POST /api/bookings/admin/create
 // @access  Private/Admin
 exports.createBookingForStudent = async (req, res) => {
   try {
@@ -571,10 +673,16 @@ exports.createBookingForStudent = async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
+    // Get current academic settings
+    const academicSettings = await AcademicSettings.getCurrent();
+    const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
     // Get current occupancy
     const currentAssignments = await RoomAssignment.countDocuments({
       roomId,
-      status: 'active'
+      status: 'active',
+      academicYear,
+      semester
     });
 
     // Check if room is full
@@ -586,6 +694,11 @@ exports.createBookingForStudent = async (req, res) => {
     const existingBooking = await Booking.findOne({
       studentId,
       status: 'active',
+      $or: [
+        { academicYear, semester },
+        { academicYear: { $exists: false } },
+        { semester: { $exists: false } }
+      ]
     });
 
     if (existingBooking) {
@@ -598,10 +711,11 @@ exports.createBookingForStudent = async (req, res) => {
     if (currentAssignments > 0) {
       const existingOccupants = await RoomAssignment.find({
         roomId,
-        status: 'active'
+        status: 'active',
+        academicYear,
+        semester
       }).populate('studentId', 'gender');
     
-      // Check if any existing occupant has a different gender
       const hasGenderConflict = existingOccupants.some(
         assignment => assignment.studentId.gender !== student.gender
       );
@@ -614,19 +728,24 @@ exports.createBookingForStudent = async (req, res) => {
       }
     }
 
-    // Create booking with admin attribution
+    // Create booking with admin attribution and academic fields
     const booking = await Booking.create({
       studentId,
       roomId,
       termsAgreed: termsAgreed || true,
       status: 'active',
-      createdByAdmin: req.user.id, // Track which admin created the booking
+      createdByAdmin: req.user.id,
+      academicYear,
+      semester
     });
 
-    // Create room assignment
+    // Create room assignment with academic fields
     await RoomAssignment.create({
       roomId,
       studentId,
+      bookingId: booking._id,
+      academicYear,
+      semester,
       status: 'active'
     });
 
@@ -636,21 +755,20 @@ exports.createBookingForStudent = async (req, res) => {
     // Invalidate related caches
     await cacheService.invalidateRoomCaches();
     await cacheService.invalidateBookingCaches();
-    await cacheService.invalidateUserCaches(); // ensure /students/:id is fresh
+    await cacheService.invalidateUserCaches();
 
     // Enhanced socket events
     const io = req.app.get('io');
     if (io) {
-      // Notify admins
       io.to('admin-room').emit('new-booking', {
         bookingId: booking._id,
         studentName: student.fullName,
         roomNumber: room.roomNumber,
         studentId: studentId,
-        createdByAdmin: req.user.fullName
+        createdByAdmin: req.user.fullName,
+        academicPeriod: `${academicYear} Semester ${semester}`
       });
       
-      // Notify all students about room availability change
       io.emit('room-availability-changed', {
         roomId: room._id,
         roomNumber: room.roomNumber,
@@ -658,7 +776,6 @@ exports.createBookingForStudent = async (req, res) => {
         currentOccupancy: room.currentOccupancy + 1
       });
       
-      // Notify the student who got booked to refetch profile
       io.to(`user-${studentId}`).emit('booking-status-updated', {
         bookingId: booking._id,
         studentId,
@@ -673,7 +790,8 @@ exports.createBookingForStudent = async (req, res) => {
 
     res.status(201).json({
       booking: completeBooking,
-      message: `Booking created successfully for ${student.fullName}`
+      message: `Booking created successfully for ${student.fullName}`,
+      academicPeriod: `${academicYear} Semester ${semester}`
     });
   } catch (error) {
     console.error('Admin create booking error:', error);

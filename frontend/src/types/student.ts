@@ -1,5 +1,6 @@
 export interface Student {
   id: string;
+  publicId?: string;
   email: string;
   full_name: string;
   fullName?: string;

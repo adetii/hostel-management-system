@@ -6,6 +6,7 @@ import { shouldSuppressAuth401ToastMessage } from '../../utils/toastUtils';
 
 export interface Booking {
   _id: string;
+  publicId?: string;
   studentId: string;
   roomId: string;
   bookingDate: string;

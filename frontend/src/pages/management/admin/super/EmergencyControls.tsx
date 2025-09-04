@@ -215,7 +215,7 @@ const EmergencyControls: React.FC = () => {
               >
                 {unlocking ? (
                   <>
-                    <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
                     Deactivating...
                   </>
                 ) : (
@@ -291,7 +291,7 @@ const EmergencyControls: React.FC = () => {
                 >
                   {locking ? (
                     <>
-                      <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
                       Activating...
                     </>
                   ) : (

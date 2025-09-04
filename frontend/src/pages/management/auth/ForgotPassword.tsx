@@ -213,10 +213,10 @@ const ForgotPassword: React.FC = () => {
                     onChange={handleEmailChange}
                     placeholder="Enter your email address"
                     className={`
-                      block w-full pl-8 lg:pl-10 pr-4 py-2.5 lg:py-3 border rounded-lg text-sm lg:text-base
-                      bg-white border-gray-300 text-gray-900 placeholder-gray-500
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                      transition-all duration-200 hover-glow
+                      block w-full pl-7 lg:pl-10 pr-8 lg:pr-12 py-1 lg:py-2 border rounded-lg text-xs lg:text-sm
+                          bg-white border-gray-300 text-gray-900 placeholder-gray-500
+                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                          transition-all duration-300 transform focus:scale-105
                       ${
                         errors.email
                           ? 'border-red-500 focus:ring-red-500 animate-shake'
@@ -240,7 +240,7 @@ const ForgotPassword: React.FC = () => {
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 lg:w-5 lg:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span className="animate-pulse">Sending Instructions...</span>
                   </>
                 ) : (
