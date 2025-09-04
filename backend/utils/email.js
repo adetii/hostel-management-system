@@ -4,18 +4,17 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: Number(process.env.EMAIL_PORT),
-  secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587 (STARTTLS)
-  service: process.env.EMAIL_SERVICE,
+  secure: process.env.EMAIL_SECURE === "true", // true for 465 (SSL), false for 587 (STARTTLS)
   auth: {
     user: process.env.EMAIL_USERNAME,
     pass: process.env.EMAIL_PASSWORD
   },
-  // Pool and rate limiting options
+  // Pool and rate limiting
   pool: true,
-  maxConnections: 3,
-  maxMessages: 10,
-  rateDelta: 20000, // 20 seconds
-  rateLimit: 5 // max 5 emails per rateDelta
+  maxConnections: 3,   // keep up to 3 SMTP connections open
+  maxMessages: 10,     // max 10 emails per connection
+  rateDelta: 20000,    // time window in ms (20s)
+  rateLimit: 5         // max 5 emails per rateDelta
 });
 
 // Send password reset email
