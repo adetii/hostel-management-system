@@ -628,7 +628,6 @@ useEffect(() => {
                     </label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors duration-200 group-focus-within:text-blue-500">
-                        <LockClosedIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
                       </div>
                       <input
                         type="email"
@@ -649,17 +648,6 @@ useEffect(() => {
                           }
                         `}
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center hover:scale-110 transition-transform duration-200"
-                      >
-                        {showConfirmPassword ? (
-                          <EyeSlashIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
-                        ) : (
-                          <EyeIcon className="h-3 w-3 lg:h-5 lg:w-5 text-gray-400 hover:text-gray-600 transition-colors duration-200" />
-                        )}
-                      </button>
                     </div>
                     {errors.email && touchedFields.email && (
                       <p className="text-xs text-red-500 flex items-center gap-1 animate-fade-in">

@@ -146,7 +146,7 @@ const createHTMLEmailTemplate = (data) => {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
-        })} UTC
+        })}GMT
       </div>
     </div>
   </div>
@@ -334,7 +334,7 @@ const submitContactForm = async (req, res) => {
     // Email options for admin notification
     const mailOptions = {
       from: `"Elite Hostel Contact Form" <noreply@elitehostel.com>`,
-      to: process.env.ADMIN_EMAIL || 'adetielorm91@gmail.com',
+      to: process.env.ADMIN_EMAIL || 'kwadjofrancis004@gmail.com',
       subject: `🔔 Contact Form: ${sanitizedData.subject}`,
       text: `
         New Contact Form Submission
@@ -361,7 +361,7 @@ const submitContactForm = async (req, res) => {
     const autoReplyOptions = {
       from: `"Elite Hostel" <noreply@elitehostel.com>`,
       to: sanitizedData.email,
-      subject: 'Thank you for contacting Elite Hostel 🏨',
+      subject: 'Thank you for contacting Elite Hostel',
       text: `
         Dear ${sanitizedData.name},
         

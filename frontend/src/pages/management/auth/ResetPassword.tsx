@@ -132,12 +132,11 @@ const ResetPassword: React.FC = () => {
     try {
       await dispatch(resetPassword({ token: token!, password })).unwrap();
       setIsSuccess(true);
-      toast.success('Password reset successfully!');
       
       // Redirect to login after 10 seconds
       setTimeout(() => {
         navigate('/management/login');
-      }, 10000);
+      }, 5000);
     } catch (error: any) {
       toast.error(error.message || 'Failed to reset password');
       if (error.message?.includes('token') || error.message?.includes('expired')) {
