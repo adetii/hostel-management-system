@@ -447,7 +447,7 @@ const ManageStudents: React.FC = () => {
       {/* Modal: Create Student */}
       {showCreateForm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto"
           onClick={() => {
             setShowCreateForm(false);
             setEditingStudent(null);
@@ -455,13 +455,13 @@ const ManageStudents: React.FC = () => {
           }}
         >
           <div
-            className="w-full max-w-2xl rounded-xl bg-white dark:bg-gray-800 shadow-xl"
+            className="w-full max-w-md sm:max-w-2xl rounded-xl bg-white dark:bg-gray-800 shadow-xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-student-title"
           >
-            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-5 py-4">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-5 py-4 bg-white dark:bg-gray-800">
               <h2 id="create-student-title" className="text-lg font-semibold text-gray-900 dark:text-white">
                 Add New Student
               </h2>

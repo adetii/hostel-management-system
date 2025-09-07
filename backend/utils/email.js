@@ -22,6 +22,10 @@ const BATCH_CONFIG = {
 if (!process.env.FROM_EMAIL || !process.env.FROM_NAME) {
   throw new Error('Missing required environment variables: FROM_EMAIL, FROM_NAME');
 }
+// Optional admin email for BCC auditing
+if (!process.env.ADMIN_EMAIL) {
+  Logger.warn('ADMIN_EMAIL not set; booking confirmations will not BCC admin');
+}
 
 // =============================================================================
 // PRODUCTION LOGGER
@@ -483,6 +487,11 @@ class ProductionEmailService {
       payload.bcc = Array.isArray(mailOptions.bcc) ? mailOptions.bcc : [mailOptions.bcc];
     }
     if (mailOptions.replyTo) payload.reply_to = mailOptions.replyTo;
+    Logger.info('Sending email via Resend', {
+      to: payload.to,
+      hasBcc: Array.isArray(payload.bcc) && payload.bcc.length > 0,
+      subject: payload.subject
+    });
     const { data, error } = await resend.emails.send(payload);
     if (error) throw new Error(error.message || 'Resend API error');
     const messageId = data?.id;
@@ -539,7 +548,7 @@ class ProductionEmailService {
       subject,
       html,
       text: `Booking Confirmed\n\nRoom Number: ${opts.roomNumber}\nRoom Type: ${opts.roomType}\nBooking Date: ${opts.bookingDate}\nAcademic Year: ${opts.academicYear}\nSemester: ${opts.semester}`,
-      bcc: process.env.ADMIN_EMAIL || 'elite.admin@myhostelsystem.site',
+      bcc: (process.env.ADMIN_EMAIL && EmailValidator.validateEmail(process.env.ADMIN_EMAIL)) || undefined,
       replyTo: BRAND_CONFIG.supportEmail || BRAND_CONFIG.email
     };
 
