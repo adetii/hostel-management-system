@@ -431,11 +431,13 @@ const ManageStudents: React.FC = () => {
               }
             ]}
             className="[&>button]:bg-white [&>button]:hover:bg-white [&>button]:border-0 [&>button]:rounded-lg"
+            buttonSize="xs"
           />
           <Button
             leftIcon={<PlusIcon className="w-3 h-3" />}
             onClick={() => setShowCreateForm(true)}
             variant="primary"
+            size="sm"
           >
             Add Student
           </Button>
@@ -445,7 +447,7 @@ const ManageStudents: React.FC = () => {
       {/* Modal: Create Student */}
       {showCreateForm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => {
             setShowCreateForm(false);
             setEditingStudent(null);

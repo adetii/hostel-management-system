@@ -48,9 +48,9 @@ const initialState: BookingState = {
 // Fetch all bookings
 export const fetchBookings = createAsyncThunk(
   'booking/fetchBookings',
-  async (_, { rejectWithValue }) => {
+  async (args: { bypassCache?: boolean } | undefined, { rejectWithValue }) => {
     try {
-      const response = await cachedGet('/bookings');
+      const response = await cachedGet('/bookings', args?.bypassCache ? { headers: { 'X-Bypass-Cache': 'true' } } : undefined);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(

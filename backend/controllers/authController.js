@@ -124,7 +124,9 @@ exports.register = async (req, res) => {
       await user.save();
 
       const verifyUrl = `${managementBaseUrl}/verify-email/${token}`;
-      await sendVerificationEmail(user.email, user.fullName, verifyUrl);
+      sendVerificationEmail(user.email, user.fullName, verifyUrl).catch(err => {
+        console.error('Registration email error:', err);
+      });
 
       return res.status(200).json({
         message: 'Account pending verification. Please check your email to verify.',
@@ -149,7 +151,9 @@ exports.register = async (req, res) => {
     });
 
     const verifyUrl = `${managementBaseUrl}/verify-email/${token}`;
-    await sendVerificationEmail(user.email, user.fullName, verifyUrl);
+    sendVerificationEmail(user.email, user.fullName, verifyUrl).catch(err => {
+      console.error('Registration email error:', err);
+    });
 
     return res.status(201).json({
       message: 'Registration successful. Please verify your email to continue.',
@@ -390,8 +394,7 @@ exports.forgotPassword = async (req, res) => {
     }
 
     if (!user) {
-      // Don't reveal whether user exists
-      return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+      return res.status(404).json({ message: 'Email not found in our system' });
     }
 
     // Generate reset token
@@ -414,7 +417,7 @@ exports.forgotPassword = async (req, res) => {
       const siteUrl = process.env.SITE_URL || process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`;
       const resetUrl = `${siteUrl.replace(/\/$/, '')}/management/reset-password?token=${resetToken}`;
       await sendPasswordResetEmail(user.email, resetUrl);
-      res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+      res.json({ message: 'Password reset link sent' });
     } catch (emailError) {
       console.error('Password reset email error:', emailError);
       res.status(500).json({ message: 'Error sending password reset email' });

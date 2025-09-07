@@ -1,23 +1,38 @@
-const nodemailer = require('nodemailer');
-const { sendPasswordResetEmail, sendNoticeToStudents } = require('../utils/email');
+const { sendEmail } = require('../utils/email');
 const { validationResult } = require('express-validator');
 const path = require('path');
 const fs = require('fs').promises;
 
-// Create transporter for sending emails
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT),
-    secure: process.env.EMAIL_SECURE  === 'true', // true for 465, false for 587 (STARTTLS)
-    service: process.env.EMAIL_SERVICE,
-    auth: {
-      user: process.env.EMAIL_USERNAME,
-      pass: process.env.EMAIL_PASSWORD
-    },
-    connectionTimeout: 60000,
-    socketTimeout: 60000,
-  });
+// SMTP transport removed; centralized email service handles sending (Resend when configured)
+
+// Brand helpers
+const BRAND = {
+  name: process.env.BRAND_NAME,
+  tagline: process.env.BRAND_TAGLINE,
+  supportEmail: process.env.SUPPORT_EMAIL,
+  phone: process.env.SUPPORT_PHONE,
+  websiteUrl: process.env.WEBSITE_URL
+};
+
+const renderFooter = () => {
+  const safeEmail = BRAND.supportEmail || '';
+  const safePhone = BRAND.phone || '';
+  const telHref = (BRAND.phone || '').replace(/[^+\d]/g, '');
+  const safeWebsite = BRAND.websiteUrl || '';
+  const linkStyle = 'color:#0b74c3;text-decoration:none;';
+  return `
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:14px;">
+      <div style="font-weight:600;color:#111111;">${BRAND.name}</div>
+      <div style="margin:6px 0;color:#6b7280;">"${BRAND.tagline}"</div>
+      <div>
+        ${safeEmail ? `<a href="mailto:${safeEmail}" style="${linkStyle}">${safeEmail}</a>` : ''}
+        ${(safeEmail && safePhone) ? ' | ' : ''}
+        ${safePhone ? `<a href="tel:${telHref}" style="${linkStyle}">${safePhone}</a>` : ''}
+        ${((safeEmail || safePhone) && safeWebsite) ? ' | ' : ''}
+        ${safeWebsite ? `<a href="${safeWebsite}" style="${linkStyle}">${safeWebsite}</a>` : ''}
+      </div>
+    </div>
+  `;
 };
 
 // Enhanced HTML email template
@@ -146,8 +161,9 @@ const createHTMLEmailTemplate = (data) => {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
-        })}GMT
+        })}
       </div>
+      ${renderFooter()}
     </div>
   </div>
 </body>
@@ -286,7 +302,13 @@ const createAutoReplyTemplate = (name, subject, inquiryType) => {
       <div class="footer">
         <p class="team">Best regards,<br>
         The Elite Hostel Team</p>
-        <p class="contact">info@elitehostel.com | +233-555-0000</p>
+        <p class="contact">
+          ${BRAND.supportEmail ? `<a href="mailto:${BRAND.supportEmail}" style="color:#0b74c3;text-decoration:none;">${BRAND.supportEmail}</a>` : ''}
+          ${(BRAND.supportEmail && BRAND.phone) ? ' | ' : ''}
+          ${BRAND.phone ? `<a href="tel:${(BRAND.phone || '').replace(/[^+\\d]/g,'')}" style="color:#0b74c3;text-decoration:none;">${BRAND.phone}</a>` : ''}
+          ${((BRAND.supportEmail || BRAND.phone) && BRAND.websiteUrl) ? ' | ' : ''}
+          ${BRAND.websiteUrl ? `<a href="${BRAND.websiteUrl}" style="color:#0b74c3;text-decoration:none;">${BRAND.websiteUrl}</a>` : ''}
+        </p>
         <p class="disclaimer">This is an automated message. Please do not reply directly to this email.</p>
       </div>
     </div>
@@ -311,10 +333,7 @@ const submitContactForm = async (req, res) => {
 
     const { name, email, phone, subject, message, inquiryType } = req.body;
 
-    // Validate required environment variables
-    if (!process.env.EMAIL_USERNAME || !process.env.EMAIL_PASSWORD) {
-      throw new Error('SMTP credentials not configured');
-    }
+    // Validate required environment variables for SMTP are set in email service
 
     // Sanitize inputs (basic HTML escaping)
     const sanitizedData = {
@@ -326,17 +345,11 @@ const submitContactForm = async (req, res) => {
       inquiryType: inquiryType ? inquiryType.replace(/[<>]/g, '') : ''
     };
 
-    const transporter = createTransporter();
-
-    // Verify transporter connection
-    await transporter.verify();
-
     // Email options for admin notification
-    const mailOptions = {
-      from: `"Elite Hostel Contact Form" <noreply@elitehostel.com>`,
-      to: process.env.ADMIN_EMAIL || 'kwadjofrancis004@gmail.com',
+    const adminOptions = {
+      email: process.env.ADMIN_EMAIL || 'kwadjofrancis004@gmail.com',
       subject: `🔔 Contact Form: ${sanitizedData.subject}`,
-      text: `
+      message: `
         New Contact Form Submission
         
         Name: ${sanitizedData.name}
@@ -354,15 +367,14 @@ const submitContactForm = async (req, res) => {
       replyTo: sanitizedData.email
     };
 
-    // Send notification email to admin
-    const adminEmailResult = await transporter.sendMail(mailOptions);
+    // Send notification email to admin (non-blocking logging if fails)
+    const adminSendPromise = sendEmail(adminOptions);
 
     // Send auto-reply to user
     const autoReplyOptions = {
-      from: `"Elite Hostel" <noreply@elitehostel.com>`,
-      to: sanitizedData.email,
+      email: sanitizedData.email,
       subject: 'Thank you for contacting Elite Hostel',
-      text: `
+      message: `
         Dear ${sanitizedData.name},
         
         Thank you for contacting Elite Hostel. We have received your message and will get back to you within 24-48 hours.
@@ -380,13 +392,19 @@ const submitContactForm = async (req, res) => {
       html: createAutoReplyTemplate(sanitizedData.name, sanitizedData.subject, sanitizedData.inquiryType)
     };
 
-    const autoReplyResult = await transporter.sendMail(autoReplyOptions);
+    const autoReplySendPromise = sendEmail(autoReplyOptions);
+
+    const [adminEmailResult] = await Promise.allSettled([adminSendPromise]);
+    await Promise.race([
+      autoReplySendPromise.catch(() => undefined),
+      new Promise(resolve => setTimeout(resolve, 15000))
+    ]);
 
     // Success response
     res.status(200).json({
       success: true,
       data: {
-        submissionId: adminEmailResult.messageId,
+        submissionId: adminEmailResult && adminEmailResult.status === 'fulfilled' && adminEmailResult.value ? adminEmailResult.value.messageId : undefined,
         timestamp: new Date().toISOString()
       }
     });

@@ -3,54 +3,37 @@ const fs = require('fs');
 const path = require('path');
 const validator = require('validator');
 
-// =============================================================================
-// PRODUCTION CONFIGURATION
-// =============================================================================
-const EMAIL_CONFIG = {
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: Number(process.env.EMAIL_PORT) || 587,
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USERNAME,
-    pass: process.env.EMAIL_PASSWORD
-  },
-  pool: true,
-  maxConnections: Number(process.env.EMAIL_MAX_CONNECTIONS) || 5,
-  maxMessages: Number(process.env.EMAIL_MAX_MESSAGES) || 100,
-  rateDelta: Number(process.env.EMAIL_RATE_DELTA) || 60000, // 1 minute
-  rateLimit: Number(process.env.EMAIL_RATE_LIMIT) || 10,
-  connectionTimeout: 60000,
-  greetingTimeout: 30000,
-  socketTimeout: 60000,
-  // Production security settings
-  tls: {
-    rejectUnauthorized: process.env.NODE_ENV === 'production',
-    ciphers: 'SSLv3'
-  }
-};
+// Use SMTP (Zoho or other SMTP) exclusively
 
 const BRAND_CONFIG = {
-  name: process.env.BRAND_NAME || 'ELITE HOSTEL MANAGEMENT',
-  tagline: process.env.BRAND_TAGLINE || 'A Home Close For Your Academic Success',
-  email: process.env.FROM_EMAIL || 'noreply@hostelmanagement.com',
-  displayName: process.env.FROM_NAME || 'Hostel Management System',
-  supportEmail: process.env.SUPPORT_EMAIL || 'support@elitehostel.com',
-  phone: process.env.SUPPORT_PHONE || '+233-555-0000',
-  websiteUrl: process.env.WEBSITE_URL || 'https://elitehostel.com'
+  name: process.env.BRAND_NAME,
+  tagline: process.env.BRAND_TAGLINE,
+  email: process.env.FROM_EMAIL,
+  displayName: process.env.FROM_NAME,
+  supportEmail: process.env.SUPPORT_EMAIL,
+  phone: process.env.SUPPORT_PHONE,
+  websiteUrl: process.env.WEBSITE_URL
 };
 
 const BATCH_CONFIG = {
-  size: Number(process.env.EMAIL_BATCH_SIZE) || 10,
-  delayMs: Number(process.env.EMAIL_BATCH_DELAY) || 3000,
-  maxRetries: Number(process.env.EMAIL_MAX_RETRIES) || 3,
-  retryDelay: Number(process.env.EMAIL_RETRY_DELAY) || 5000
+  size: Number(process.env.EMAIL_BATCH_SIZE),
+  delayMs: Number(process.env.EMAIL_BATCH_DELAY),
+  maxRetries: Number(process.env.EMAIL_MAX_RETRIES),
+  retryDelay: Number(process.env.EMAIL_RETRY_DELAY)
 };
 
-// Validation
-const requiredEnvVars = ['EMAIL_USERNAME', 'EMAIL_PASSWORD'];
-const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-if (missingVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+// SMTP env validation
+{
+  const missing = [];
+  if (!process.env.SMTP_HOST) missing.push('SMTP_HOST');
+  if (!process.env.SMTP_PORT) missing.push('SMTP_PORT');
+  if (!process.env.SMTP_USER) missing.push('SMTP_USER');
+  if (!process.env.SMTP_PASS) missing.push('SMTP_PASS');
+  if (!process.env.FROM_EMAIL) missing.push('FROM_EMAIL');
+  if (!process.env.FROM_NAME) missing.push('FROM_NAME');
+  if (missing.length) {
+    throw new Error(`Missing required SMTP environment variables: ${missing.join(', ')}`);
+  }
 }
 
 // =============================================================================
@@ -167,33 +150,42 @@ class EmailValidator {
 // =============================================================================
 class ProductionEmailTransporter {
   constructor() {
-    this.transporter = null;
     this.isReady = false;
     this.lastError = null;
     this.retryCount = 0;
+    this.smtpTransport = null;
   }
 
   async initialize() {
     if (this.isReady) return this.transporter;
 
     try {
-      this.transporter = nodemailer.createTransport(EMAIL_CONFIG);
-      await this.transporter.verify();
+      const host = process.env.SMTP_HOST;
+      const port = parseInt(process.env.SMTP_PORT, 10);
+      const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465;
+      this.smtpTransport = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000,
+        tls: { minVersion: 'TLSv1.2', rejectUnauthorized: process.env.NODE_ENV === 'production' }
+      });
+      await this.smtpTransport.verify();
       this.isReady = true;
       this.retryCount = 0;
       this.lastError = null;
-      
-      Logger.info('Email transporter initialized successfully', {
-        host: EMAIL_CONFIG.host,
-        port: EMAIL_CONFIG.port
-      });
-      
-      return this.transporter;
+      Logger.info('Email transporter initialized via SMTP', { host, port, secure });
+      return this.smtpTransport;
     } catch (error) {
       this.lastError = error;
       Logger.error('Email transporter initialization failed', error, {
-        retryCount: this.retryCount,
-        host: EMAIL_CONFIG.host
+        retryCount: this.retryCount
       });
       throw new Error(`Failed to initialize email service: ${error.message}`);
     }
@@ -206,15 +198,13 @@ class ProductionEmailTransporter {
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        const info = await this.transporter.sendMail(mailOptions);
-        
-        Logger.info('Email sent successfully', {
-          messageId: info.messageId,
+        const info = await this.smtpTransport.sendMail(mailOptions);
+        Logger.info('Email sent successfully (SMTP)', {
+          messageId: info && info.messageId,
           to: mailOptions.to,
           subject: mailOptions.subject,
           attempt
         });
-        
         return info;
       } catch (error) {
         Logger.error(`Email send attempt ${attempt} failed`, error, {
@@ -231,12 +221,6 @@ class ProductionEmailTransporter {
         // Exponential backoff
         const delay = BATCH_CONFIG.retryDelay * Math.pow(2, attempt - 1);
         await this.delay(delay);
-
-        // Reinitialize on connection errors
-        if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
-          this.isReady = false;
-          await this.initialize();
-        }
       }
     }
   }
@@ -384,14 +368,23 @@ class SecureEmailTemplate {
     const safeTagline = EmailValidator.sanitizeText(BRAND_CONFIG.tagline);
     const safeSupportEmail = EmailValidator.sanitizeText(BRAND_CONFIG.supportEmail);
     const safePhone = EmailValidator.sanitizeText(BRAND_CONFIG.phone);
+    const websiteUrlRaw = BRAND_CONFIG.websiteUrl || '';
+    const safeWebsiteUrl = EmailValidator.sanitizeText(websiteUrlRaw);
+    const telHref = (BRAND_CONFIG.phone || '').replace(/[^+\d]/g, '');
     const safeDisclaimer = disclaimer ? EmailValidator.sanitizeText(disclaimer) : '';
+
+    const linkStyle = 'color:#0b74c3;text-decoration:none;';
     
     return `
       <div class="footer">
         <div class="brand-footer">${safeBrandName}</div>
         <div class="tagline">"${safeTagline}"</div>
         <div class="contact">
-          ${safeSupportEmail} | ${safePhone}
+          ${safeSupportEmail ? `<a href="mailto:${safeSupportEmail}" style="${linkStyle}">${safeSupportEmail}</a>` : ''}
+          ${(safeSupportEmail && safePhone) ? ' | ' : ''}
+          ${safePhone ? `<a href="tel:${telHref}" style="${linkStyle}">${safePhone}</a>` : ''}
+          ${((safeSupportEmail || safePhone) && safeWebsiteUrl) ? ' | ' : ''}
+          ${safeWebsiteUrl ? `<a href="${safeWebsiteUrl}" style="${linkStyle}">${safeWebsiteUrl}</a>` : ''}
         </div>
         ${safeDisclaimer ? `<div class="disclaimer">${safeDisclaimer}</div>` : ''}
       </div>
@@ -490,8 +483,8 @@ class SecureEmailTemplate {
       </div>
       <p>Once verified, you'll be able to log in and start using all the features of our hostel management system.</p>
     `;
-    
-    return this.createBase('Verify Your Email', content);
+    const disclaimer = "This is an automated security email. Please do not reply directly to this message.";
+    return this.createBase('Verify Your Email', content, disclaimer);
   }
 }
 
@@ -518,13 +511,21 @@ class ProductionEmailService {
         throw new Error('Email content (html or message) is required');
       }
 
+      const fromAddress = process.env.RESEND_FROM
+        ? process.env.RESEND_FROM
+        : `${BRAND_CONFIG.displayName} <${BRAND_CONFIG.email}>`;
+
       const mailOptions = {
-        from: `${BRAND_CONFIG.displayName} <${BRAND_CONFIG.email}>`,
+        from: fromAddress,
         to: email,
         subject: subject,
         text: options.message || '',
         html: options.html || ''
       };
+
+      if (options.replyTo) {
+        mailOptions.replyTo = options.replyTo;
+      }
 
       const info = await this.transporter.sendWithRetry(mailOptions);
       this.stats.sent++;
@@ -583,43 +584,52 @@ class ProductionEmailService {
     for (let i = 0; i < emailBatches.length; i++) {
       const batch = emailBatches[i];
 
+      const fromAddress = process.env.RESEND_FROM
+        ? process.env.RESEND_FROM
+        : `${BRAND_CONFIG.displayName} <${BRAND_CONFIG.email}>`;
+
+      let batchSent = 0;
+      let batchFailed = 0;
+      const messageIds = [];
+
+      for (const recipient of batch) {
       try {
         const mailOptions = {
-          from: `${BRAND_CONFIG.displayName} <${BRAND_CONFIG.email}>`,
-          to: `"Hostel Notice" <${BRAND_CONFIG.email}>`,
-          bcc: batch,
+            from: fromAddress,
+            to: recipient,
           subject: validatedSubject,
           html: this.createNoticeTemplate(validatedSubject, sanitizedMessage, attachment, attachmentUrl)
         };
 
         const info = await this.transporter.sendWithRetry(mailOptions);
-        totalSent += batch.length;
-        results.push({
-          batchIndex: i + 1,
-          success: true,
-          recipientCount: batch.length,
-          messageId: info.messageId
-        });
+          batchSent += 1;
+          totalSent += 1;
+          if (info && info.messageId) messageIds.push(info.messageId);
 
-        Logger.info(`Batch ${i + 1} sent successfully`, {
-          recipientCount: batch.length,
-          messageId: info.messageId
-        });
-
-      } catch (error) {
-        totalFailed += batch.length;
-        results.push({
-          batchIndex: i + 1,
-          success: false,
-          error: error.message,
-          recipientCount: batch.length
-        });
-
-        Logger.error(`Batch ${i + 1} failed`, error, {
-          recipientCount: batch.length,
-          batchIndex: i + 1
-        });
+          // Small delay to avoid provider rate limits
+          await this.delay(200);
+        } catch (error) {
+          batchFailed += 1;
+          totalFailed += 1;
+          Logger.error(`Bulk notice send failed for ${recipient}`, error);
+        }
       }
+
+        results.push({
+          batchIndex: i + 1,
+        success: batchFailed === 0,
+          recipientCount: batch.length,
+        sent: batchSent,
+        failed: batchFailed,
+        messageIds
+        });
+
+      Logger.info(`Batch ${i + 1} completed`, {
+          recipientCount: batch.length,
+        sent: batchSent,
+        failed: batchFailed,
+        messageIds
+      });
 
       // Delay between batches
       if (i < emailBatches.length - 1) {
@@ -646,6 +656,7 @@ class ProductionEmailService {
     const safeTagline = EmailValidator.sanitizeText(BRAND_CONFIG.tagline);
     const safeSubject = EmailValidator.sanitizeText(subject);
     const safeMessage = message.replace(/\n/g, '<br/>');
+    const safeDisclaimer = EmailValidator.sanitizeText('This is an automated system notice. Please do not reply to this email.');
 
     const attachmentHtml = attachment ? `
       <tr>
@@ -712,7 +723,7 @@ class ProductionEmailService {
                   <tr>
                     <td style="padding:12px 24px 18px 24px;background:#ffffff;">
                       <div style="background:#fbfcfd;border:1px solid #eef2f6;border-radius:6px;padding:16px;">
-                        <div style="color:#111827;font-size:15px;line-height:1.6;white-space:pre-wrap;">
+                        <div style="color:#111827;font-size:15px;line-height:1.6;">
                           ${safeMessage}
                         </div>
                       </div>
@@ -725,8 +736,15 @@ class ProductionEmailService {
                     <td style="padding:18px 24px 20px 24px;background:#ffffff;border-top:1px solid #f1f5f9;">
                       <div style="font-size:13px;color:#6b7280;">
                         <div style="font-weight:600;color:#111111;">${safeBrandName}</div>
-                        <div style="margin-top:6px;">${EmailValidator.sanitizeText(BRAND_CONFIG.supportEmail)} | ${EmailValidator.sanitizeText(BRAND_CONFIG.phone)}</div>
-                        <div style="margin-top:10px;font-size:12px;color:#9aa0a6;">This is an official notice from the hostel administration. If this message was sent to you by mistake, please contact the administration.</div>
+                        <div style="margin-top:6px;">
+                          ${EmailValidator.sanitizeText(BRAND_CONFIG.supportEmail) ? `<a href="mailto:${EmailValidator.sanitizeText(BRAND_CONFIG.supportEmail)}" style="color:#0b74c3;text-decoration:none;">${EmailValidator.sanitizeText(BRAND_CONFIG.supportEmail)}</a>` : ''}
+                          ${(EmailValidator.sanitizeText(BRAND_CONFIG.supportEmail) && EmailValidator.sanitizeText(BRAND_CONFIG.phone)) ? ' | ' : ''}
+                          ${(() => { const t = (BRAND_CONFIG.phone || '').replace(/[^+\d]/g,''); return EmailValidator.sanitizeText(BRAND_CONFIG.phone) ? `<a href="tel:${t}" style="color:#0b74c3;text-decoration:none;">${EmailValidator.sanitizeText(BRAND_CONFIG.phone)}</a>` : '' })()}
+                          ${( (EmailValidator.sanitizeText(BRAND_CONFIG.supportEmail) || EmailValidator.sanitizeText(BRAND_CONFIG.phone)) && EmailValidator.sanitizeText(BRAND_CONFIG.websiteUrl) ) ? ' | ' : ''}
+                          ${EmailValidator.sanitizeText(BRAND_CONFIG.websiteUrl) ? `<a href="${EmailValidator.sanitizeText(BRAND_CONFIG.websiteUrl)}" style="color:#0b74c3;text-decoration:none;">${EmailValidator.sanitizeText(BRAND_CONFIG.websiteUrl)}</a>` : ''}
+                        </div>
+                        <div style="margin-top:10px;font-size:12px;color:#9aa0a6;">This is an official notice from the hostel administration.</div>
+                        <div style="margin-top:10px;font-size:12px;color:#9aa0a6;">${safeDisclaimer}</div>
                       </div>
                     </td>
                   </tr>

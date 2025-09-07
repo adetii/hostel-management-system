@@ -282,7 +282,7 @@ const ResetPassword: React.FC = () => {
           {/* Redirect message */}
           <div className="bg-gray-100 rounded-lg p-3 mb-6 animate-fade-in-up animation-delay-400">
             <p className="text-blue-700 text-xs text-center">
-              Redirecting to login page in 3 seconds...
+              Redirecting to login page in 5 seconds...
             </p>
           </div>
 

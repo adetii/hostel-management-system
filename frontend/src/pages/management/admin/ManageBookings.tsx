@@ -458,10 +458,12 @@ const ManageBookings: React.FC = () => {
               },
             ]}
             className="[&>button]:bg-white [&>button]:hover:bg-white [&>button]:border-0 [&>button]:rounded-lg"
+            buttonSize="xs"
           />
           <Button
-            onClick={() => dispatch(fetchBookings())}
+            onClick={() => dispatch(fetchBookings({ bypassCache: true }))}
             variant="secondary"
+            size="sm"
             leftIcon={<ArrowPathIcon className="w-4 h-4" />}
           >
             Refresh
@@ -469,6 +471,7 @@ const ManageBookings: React.FC = () => {
           <Button
             onClick={() => setShowAddBookingModal(true)}
             variant="primary"
+            size="sm"
             leftIcon={<UserPlusIcon className="w-5 h-5" />}
             className="w-full sm:w-auto"
           >
@@ -477,6 +480,7 @@ const ManageBookings: React.FC = () => {
           <Button
             onClick={handleClearAllBookings}
             variant="danger"
+            size="sm"
             leftIcon={<TrashIcon className="w-5 h-5" />}
             className="w-full sm:w-auto"
           >

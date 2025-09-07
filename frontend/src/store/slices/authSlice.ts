@@ -148,7 +148,12 @@ export const forgotPassword = createAsyncThunk(
       const res = await api.post('/auth/forgot-password', { email });
       return res.data;
     } catch (err: any) {
-      return rejectWithValue(err.response?.data || { message: 'Failed to send reset email' });
+      const status = err.response?.status;
+      const data = err.response?.data;
+      if (status === 404) {
+        return rejectWithValue({ message: 'Email not found in our system', userNotFound: true });
+      }
+      return rejectWithValue(data || { message: 'Failed to send reset email' });
     }
   }
 );
@@ -312,7 +317,11 @@ const authSlice = createSlice({
       .addCase(forgotPassword.rejected, (state, action: any) => {
         state.loading = false;
         state.error = action.payload?.message || 'Failed to send reset email';
-        toast.error(state.error);
+        if (action.payload?.userNotFound) {
+          toast.error('Email not found in our system');
+        } else {
+          toast.error(state.error);
+        }
       })
       .addCase(resetPassword.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(resetPassword.fulfilled, (state) => {

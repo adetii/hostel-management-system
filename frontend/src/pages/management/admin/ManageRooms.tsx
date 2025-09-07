@@ -105,7 +105,6 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, onEdit, onDelete, onStatusCha
   const statusValue = room.status || (room.isAvailable ? 'available' : 'unavailable');
 
   const handleStatusToggle = () => {
-    // Read-only when occupied
     if (computedStatus === 'occupied') return;
     const newStatus = computedStatus === 'available' ? 'unavailable' : 'available';
     onStatusChange(room._id || String(room.id), newStatus);
@@ -533,13 +532,15 @@ if (!rooms || rooms.length === 0) {
               }
             ]}
             className="[&>button]:bg-white [&>button]:hover:bg-white [&>button]:border-0 [&>button]:rounded-lg"
+            buttonSize="xs"
           />
           <Button
+           leftIcon={<PlusIcon className="w-3 h-3" />}
             onClick={() => setIsCreateModalOpen(true)}
+            size="sm"
             className="w-full sm:w-auto"
           >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Add New Room
+            Add Room
           </Button>
         </div>
       </div>
