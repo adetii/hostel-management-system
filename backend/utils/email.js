@@ -160,28 +160,60 @@ class ProductionEmailTransporter {
     if (this.isReady) return this.transporter;
 
     try {
-      const host = process.env.SMTP_HOST;
-      const port = parseInt(process.env.SMTP_PORT, 10);
-      const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465;
-      this.smtpTransport = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
-        tls: { minVersion: 'TLSv1.2', rejectUnauthorized: process.env.NODE_ENV === 'production' }
-      });
-      await this.smtpTransport.verify();
-      this.isReady = true;
-      this.retryCount = 0;
-      this.lastError = null;
-      Logger.info('Email transporter initialized via SMTP', { host, port, secure });
-      return this.smtpTransport;
+      const user = process.env.SMTP_USER;
+      const pass = process.env.SMTP_PASS;
+      const envPort = parseInt(process.env.SMTP_PORT || '', 10);
+      const candidatesHosts = [
+        process.env.SMTP_HOST,
+        'smtp.zoho.com',
+        'smtp.zoho.eu',
+        'smtp.zoho.in'
+      ].filter(Boolean);
+      // Try port 587 (STARTTLS) first, then 465 (SMTPS), then the env port if custom
+      const candidatesPorts = Array.from(new Set([
+        Number.isFinite(envPort) ? envPort : 587,
+        587,
+        465
+      ]));
+
+      let lastErr = null;
+      for (const host of candidatesHosts) {
+        for (const port of candidatesPorts) {
+          const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465;
+          const transportOptions = {
+            host,
+            port,
+            secure,
+            auth: { user, pass },
+            // Prefer IPv4 on some hosts to avoid IPv6 timeouts
+            family: 4,
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 15000,
+            // For STARTTLS, require TLS upgrade
+            requireTLS: !secure,
+            tls: { minVersion: 'TLSv1.2', rejectUnauthorized: process.env.NODE_ENV === 'production' }
+          };
+
+          try {
+            const transport = nodemailer.createTransport(transportOptions);
+            await transport.verify();
+            this.smtpTransport = transport;
+            this.isReady = true;
+            this.retryCount = 0;
+            this.lastError = null;
+            Logger.info('Email transporter initialized via SMTP', { host, port, secure });
+            return this.smtpTransport;
+          } catch (err) {
+            lastErr = err;
+            Logger.error('SMTP verify failed for candidate', err, { host, port, secure });
+            // try next candidate
+          }
+        }
+      }
+
+      // If we exhausted all candidates, throw the last error
+      throw lastErr || new Error('Unable to initialize SMTP transport');
     } catch (error) {
       this.lastError = error;
       Logger.error('Email transporter initialization failed', error, {
