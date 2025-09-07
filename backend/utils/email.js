@@ -1,9 +1,5 @@
-const nodemailer = require('nodemailer');
-const fs = require('fs');
-const path = require('path');
+const { Resend } = require('resend');
 const validator = require('validator');
-
-// Use SMTP (Zoho or other SMTP) exclusively
 
 const BRAND_CONFIG = {
   name: process.env.BRAND_NAME,
@@ -22,18 +18,9 @@ const BATCH_CONFIG = {
   retryDelay: Number(process.env.EMAIL_RETRY_DELAY)
 };
 
-// SMTP env validation
-{
-  const missing = [];
-  if (!process.env.SMTP_HOST) missing.push('SMTP_HOST');
-  if (!process.env.SMTP_PORT) missing.push('SMTP_PORT');
-  if (!process.env.SMTP_USER) missing.push('SMTP_USER');
-  if (!process.env.SMTP_PASS) missing.push('SMTP_PASS');
-  if (!process.env.FROM_EMAIL) missing.push('FROM_EMAIL');
-  if (!process.env.FROM_NAME) missing.push('FROM_NAME');
-  if (missing.length) {
-    throw new Error(`Missing required SMTP environment variables: ${missing.join(', ')}`);
-  }
+// Minimal sender validation for Resend-only mode
+if (!process.env.FROM_EMAIL || !process.env.FROM_NAME) {
+  throw new Error('Missing required environment variables: FROM_EMAIL, FROM_NAME');
 }
 
 // =============================================================================
@@ -145,122 +132,6 @@ class EmailValidator {
   }
 }
 
-// =============================================================================
-// TRANSPORTER WITH RETRY LOGIC
-// =============================================================================
-class ProductionEmailTransporter {
-  constructor() {
-    this.isReady = false;
-    this.lastError = null;
-    this.retryCount = 0;
-    this.smtpTransport = null;
-  }
-
-  async initialize() {
-    if (this.isReady) return this.transporter;
-
-    try {
-      const user = process.env.SMTP_USER;
-      const pass = process.env.SMTP_PASS;
-      const envPort = parseInt(process.env.SMTP_PORT || '', 10);
-      const candidatesHosts = [
-        process.env.SMTP_HOST,
-        'smtp.zoho.com',
-        'smtp.zoho.eu',
-        'smtp.zoho.in'
-      ].filter(Boolean);
-      // Try port 587 (STARTTLS) first, then 465 (SMTPS), then the env port if custom
-      const candidatesPorts = Array.from(new Set([
-        Number.isFinite(envPort) ? envPort : 587,
-        587,
-        465
-      ]));
-
-      let lastErr = null;
-      for (const host of candidatesHosts) {
-        for (const port of candidatesPorts) {
-          const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465;
-          const transportOptions = {
-            host,
-            port,
-            secure,
-            auth: { user, pass },
-            // Prefer IPv4 on some hosts to avoid IPv6 timeouts
-            family: 4,
-            connectionTimeout: 10000,
-            greetingTimeout: 10000,
-            socketTimeout: 15000,
-            // For STARTTLS, require TLS upgrade
-            requireTLS: !secure,
-            tls: { minVersion: 'TLSv1.2', rejectUnauthorized: process.env.NODE_ENV === 'production' }
-          };
-
-          try {
-            const transport = nodemailer.createTransport(transportOptions);
-            await transport.verify();
-            this.smtpTransport = transport;
-            this.isReady = true;
-            this.retryCount = 0;
-            this.lastError = null;
-            Logger.info('Email transporter initialized via SMTP', { host, port, secure });
-            return this.smtpTransport;
-          } catch (err) {
-            lastErr = err;
-            Logger.error('SMTP verify failed for candidate', err, { host, port, secure });
-            // try next candidate
-          }
-        }
-      }
-
-      // If we exhausted all candidates, throw the last error
-      throw lastErr || new Error('Unable to initialize SMTP transport');
-    } catch (error) {
-      this.lastError = error;
-      Logger.error('Email transporter initialization failed', error, {
-        retryCount: this.retryCount
-      });
-      throw new Error(`Failed to initialize email service: ${error.message}`);
-    }
-  }
-
-  async sendWithRetry(mailOptions, retries = BATCH_CONFIG.maxRetries) {
-    if (!this.isReady) {
-      await this.initialize();
-    }
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const info = await this.smtpTransport.sendMail(mailOptions);
-        Logger.info('Email sent successfully (SMTP)', {
-          messageId: info && info.messageId,
-          to: mailOptions.to,
-          subject: mailOptions.subject,
-          attempt
-        });
-        return info;
-      } catch (error) {
-        Logger.error(`Email send attempt ${attempt} failed`, error, {
-          to: mailOptions.to,
-          subject: mailOptions.subject,
-          attempt,
-          retriesLeft: retries - attempt
-        });
-
-        if (attempt === retries) {
-          throw error;
-        }
-
-        // Exponential backoff
-        const delay = BATCH_CONFIG.retryDelay * Math.pow(2, attempt - 1);
-        await this.delay(delay);
-      }
-    }
-  }
-
-  delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-}
 
 // =============================================================================
 // SECURE TEMPLATE SYSTEM
@@ -379,6 +250,30 @@ class SecureEmailTemplate {
         color: #9ca3af;
       }
     `;
+  }
+
+  static bookingConfirmation(data) {
+    const safeName = EmailValidator.sanitizeText(data.studentName || 'Student');
+    const safeRoomNumber = EmailValidator.sanitizeText(data.roomNumber || '');
+    const safeRoomType = EmailValidator.sanitizeText(data.roomType || '');
+    const safeAcademicYear = EmailValidator.sanitizeText(data.academicYear || '');
+    const safeSemester = EmailValidator.sanitizeText(data.semester || '');
+    const safeBookingDate = EmailValidator.sanitizeText(data.bookingDate || '');
+
+    const content = `
+      <p>Dear <strong>${safeName}</strong>,</p>
+      <p>Your booking has been confirmed. Below are the details:</p>
+      <div class="alert alert-info">
+        <div><strong>Room Number:</strong> ${safeRoomNumber}</div>
+        <div><strong>Room Type:</strong> ${safeRoomType}</div>
+        <div><strong>Booking Date:</strong> ${safeBookingDate}</div>
+        <div><strong>Academic Year:</strong> ${safeAcademicYear}</div>
+        <div><strong>Semester:</strong> ${safeSemester}</div>
+      </div>
+      <p>If any detail looks incorrect, reply to this email and our team will assist you.</p>
+    `;
+    const disclaimer = 'This is a transactional confirmation email.';
+    return this.createBase('Booking Confirmed', content, disclaimer);
   }
 
   static getHeader(title) {
@@ -525,7 +420,6 @@ class SecureEmailTemplate {
 // =============================================================================
 class ProductionEmailService {
   constructor() {
-    this.transporter = new ProductionEmailTransporter();
     this.stats = {
       sent: 0,
       failed: 0,
@@ -559,7 +453,8 @@ class ProductionEmailService {
         mailOptions.replyTo = options.replyTo;
       }
 
-      const info = await this.transporter.sendWithRetry(mailOptions);
+      if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
+      const info = await this.sendViaResend(mailOptions);
       this.stats.sent++;
       return info;
 
@@ -573,6 +468,33 @@ class ProductionEmailService {
       throw new Error(`Email could not be sent: ${error.message}`);
     }
   }
+
+  async sendViaResend(mailOptions) {
+    const apiKey = process.env.RESEND_API_KEY.trim();
+    const resend = new Resend(apiKey);
+    const payload = {
+      from: mailOptions.from,
+      to: Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to],
+      subject: mailOptions.subject,
+      html: mailOptions.html,
+      text: mailOptions.text
+    };
+    if (mailOptions.bcc) {
+      payload.bcc = Array.isArray(mailOptions.bcc) ? mailOptions.bcc : [mailOptions.bcc];
+    }
+    if (mailOptions.replyTo) payload.reply_to = mailOptions.replyTo;
+    const { data, error } = await resend.emails.send(payload);
+    if (error) throw new Error(error.message || 'Resend API error');
+    const messageId = data?.id;
+    Logger.info('Email sent successfully (Resend)', {
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      messageId
+    });
+    return { messageId };
+  }
+
+  // ZeptoMail removed – Resend only
 
   async sendPasswordResetEmail(email, resetUrl) {
     const validatedEmail = EmailValidator.validateEmail(email);
@@ -593,6 +515,35 @@ class ProductionEmailService {
       subject: 'Verify Your Email',
       html: SecureEmailTemplate.emailVerification(safeDisplayName, verifyUrl)
     });
+  }
+
+  async sendBookingConfirmationEmail(opts) {
+    const to = EmailValidator.validateEmail(opts.email);
+    const fromAddress = process.env.RESEND_FROM
+      ? process.env.RESEND_FROM
+      : `${BRAND_CONFIG.displayName} <${BRAND_CONFIG.email}>`;
+
+    const subject = `Booking Confirmed – Room ${opts.roomNumber} (${opts.roomType})`;
+    const html = SecureEmailTemplate.bookingConfirmation({
+      studentName: opts.studentName,
+      roomNumber: opts.roomNumber,
+      roomType: opts.roomType,
+      bookingDate: opts.bookingDate,
+      academicYear: opts.academicYear,
+      semester: opts.semester
+    });
+
+    const mailOptions = {
+      from: fromAddress,
+      to,
+      subject,
+      html,
+      text: `Booking Confirmed\n\nRoom Number: ${opts.roomNumber}\nRoom Type: ${opts.roomType}\nBooking Date: ${opts.bookingDate}\nAcademic Year: ${opts.academicYear}\nSemester: ${opts.semester}`,
+      bcc: process.env.ADMIN_EMAIL || 'elite.admin@myhostelsystem.site',
+      replyTo: BRAND_CONFIG.supportEmail || BRAND_CONFIG.email
+    };
+
+    return this.sendViaResend(mailOptions);
   }
 
   async sendNoticeToStudents(studentEmails, subject, message, attachment = null, attachmentUrl = null) {
@@ -633,7 +584,7 @@ class ProductionEmailService {
           html: this.createNoticeTemplate(validatedSubject, sanitizedMessage, attachment, attachmentUrl)
         };
 
-        const info = await this.transporter.sendWithRetry(mailOptions);
+        const info = await this.sendViaResend(mailOptions);
           batchSent += 1;
           totalSent += 1;
           if (info && info.messageId) messageIds.push(info.messageId);
@@ -825,6 +776,7 @@ module.exports = {
   sendEmail: (options) => emailService.sendEmail(options),
   sendPasswordResetEmail: (email, resetUrl) => emailService.sendPasswordResetEmail(email, resetUrl),
   sendVerificationEmail: (email, fullName, verifyUrl) => emailService.sendVerificationEmail(email, fullName, verifyUrl),
+  sendBookingConfirmationEmail: (opts) => emailService.sendBookingConfirmationEmail(opts),
   sendNoticeToStudents: (emails, subject, message, attachment, attachmentUrl) => 
     emailService.sendNoticeToStudents(emails, subject, message, attachment, attachmentUrl),
   

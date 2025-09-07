@@ -101,11 +101,8 @@ export const register = createAsyncThunk(
   }, { rejectWithValue }) => {
     try {
       const res = await api.post('/auth/register', userData);
-      // Don't try to get CSRF token after registration since user doesn't have a session yet
-      // The CSRF token will be obtained after email verification and login
       return res.data;
     } catch (err: any) {
-      // Handle emergency lockdown 503 specifically for registration
       const status = err.response?.status;
       const data = err.response?.data;
       if (status === 503 && data?.emergencyLockdown) {
@@ -196,7 +193,6 @@ export const resendVerification = createAsyncThunk(
   'auth/resendVerification',
   async (email: string, { rejectWithValue }) => {
     try {
-      // Use public (non-tabbed) API and correct path (no extra /api prefix)
       const res = await publicApi.post(`/auth/resend-verification`, { email });
       return res.data;
     } catch (err: any) {
@@ -288,7 +284,6 @@ const authSlice = createSlice({
       .addCase(register.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(register.fulfilled, (state, action: PayloadAction<any>) => {
         state.loading = false;
-        // Do NOT authenticate on registration; prompt to verify email
         state.user = null;
         state.isAuthenticated = false;
         state.hydrated = true; // added (safe)

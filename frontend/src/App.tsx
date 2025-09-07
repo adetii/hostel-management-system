@@ -20,6 +20,8 @@ import ProtectedRoute from './components/shared/ProtectedRoute';
 import StudentProfile from '@/pages/management/admin/StudentProfile';
 import Login from './pages/management/auth/Login';
 import Register from './pages/management/auth/Register';
+import ForgotPassword from './pages/management/auth/ForgotPassword';
+import ResetPassword from './pages/management/auth/ResetPassword';
 import NotFound from '@/pages/management/NotFound';
 
 // Lazy load heavy components
@@ -32,9 +34,7 @@ const Terms = lazy(() => import('./pages/public/Terms'));
 const Privacy = lazy(() => import('./pages/public/Privacy'));
 const Rules = lazy(() => import('./pages/public/Rules'));
 
-// Auth Pages (lazy loaded)
-const ForgotPassword = lazy(() => import('./pages/management/auth/ForgotPassword'));
-const ResetPassword = lazy(() => import('./pages/management/auth/ResetPassword'));
+// Auth Pages (eager to avoid full-screen loader flash)
 const VerifyEmail = lazy(() => import('./pages/management/auth/VerifyEmail'));
 const EmailVerificationSent = lazy(() => import('./pages/management/auth/EmailVerificationSent'));
 
@@ -196,14 +196,10 @@ function App() {
                   <Route path="login" element={<Login />} />
                   <Route path="register" element={<Register />} />
                   <Route path="forgot-password" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <ForgotPassword />
-                    </Suspense>
+                    <ForgotPassword />
                   } />
                   <Route path="reset-password" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <ResetPassword />
-                    </Suspense>
+                    <ResetPassword />
                   } />
                   {/* Add: email verification routes */}
                   <Route path="verify-email/:token" element={<VerifyEmail />} />

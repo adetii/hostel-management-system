@@ -1,6 +1,7 @@
 const { Booking, BookingArchive, Room, User, RoomAssignment, AcademicSettings } = require('../models');
 const { validationResult } = require('express-validator');
 const { syncRoomOccupancy } = require('../utils/roomUtils');
+const { sendBookingConfirmationEmail } = require('../utils/email');
 const cacheService = require('../utils/cacheService');
 
 // @desc    Get all bookings
@@ -209,6 +210,22 @@ exports.createBooking = async (req, res) => {
     const completeBooking = await Booking.findById(booking._id)
       .populate('studentId', 'fullName email')
       .populate('roomId', 'roomNumber roomType capacity');
+
+    // Fire-and-forget booking confirmation email
+    try {
+      const bookingDate = new Date(booking.createdAt || Date.now()).toUTCString();
+      await sendBookingConfirmationEmail({
+        email: completeBooking.studentId.email,
+        studentName: completeBooking.studentId.fullName,
+        roomNumber: completeBooking.roomId.roomNumber,
+        roomType: completeBooking.roomId.roomType,
+        bookingDate,
+        academicYear,
+        semester
+      });
+    } catch (emailErr) {
+      console.error('Booking confirmation email failed:', emailErr);
+    }
 
     res.status(201).json({
       booking: completeBooking,
@@ -787,6 +804,22 @@ exports.createBookingForStudent = async (req, res) => {
     const completeBooking = await Booking.findById(booking._id)
       .populate('studentId', 'fullName email programmeOfStudy level')
       .populate('roomId', 'roomNumber roomType capacity');
+
+    // Fire-and-forget booking confirmation email (admin-created)
+    try {
+      const bookingDate = new Date(booking.createdAt || Date.now()).toUTCString();
+      await sendBookingConfirmationEmail({
+        email: completeBooking.studentId.email,
+        studentName: completeBooking.studentId.fullName,
+        roomNumber: completeBooking.roomId.roomNumber,
+        roomType: completeBooking.roomId.roomType,
+        bookingDate,
+        academicYear,
+        semester
+      });
+    } catch (emailErr) {
+      console.error('Booking confirmation email (admin) failed:', emailErr);
+    }
 
     res.status(201).json({
       booking: completeBooking,

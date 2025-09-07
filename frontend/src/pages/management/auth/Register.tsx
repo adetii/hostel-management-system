@@ -299,10 +299,10 @@ useEffect(() => {
         allValid = false;
       }
     }
-    
+
+      // Redirect to check-email page with email in query params for convenience
     try {
       await dispatch(register({ ...formData, role: 'student' })).unwrap();
-      // Redirect to check-email page with email in query params for convenience
       navigate(`/management/verify-email/sent?email=${encodeURIComponent(formData.email)}`);
     } catch (error: any) {
       console.error('Registration error:', error);
