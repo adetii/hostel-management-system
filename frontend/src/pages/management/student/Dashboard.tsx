@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { RootState } from '@/store';
 import { fetchStudentByIdFresh } from '@/store/slices/studentSlice';
-import { fetchRooms, fetchRoomOccupants } from '@/store/slices/roomSlice';
+import { fetchRooms, fetchRoomOccupantsFresh } from '@/store/slices/roomSlice';
 import { fetchPublicSettings } from '@/store/slices/settingsSlice';
 import { logoutUser } from '@/store/slices/authSlice';
 import { useAppDispatch } from '@/hooks/useAppDispatch';
@@ -39,6 +39,40 @@ const StudentDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'roommates'>('overview');
 
+  // Compute booking/room info BEFORE any effects that use roomIdStr
+  const bookingsList = (student as any)?.Bookings ?? (student as any)?.bookings ?? [];
+  const activeBooking = bookingsList.find((booking: Booking) => booking.status === 'active');
+
+  // Ensure we always have a string roomId (handles both string ID and populated object)
+  const roomIdStr =
+    typeof activeBooking?.roomId === 'string'
+      ? activeBooking.roomId
+      : (activeBooking?.roomId as any)?._id;
+
+  // Find room for active booking (use populated object directly if available)
+  const currentRoom =
+    (typeof activeBooking?.roomId === 'object' && (activeBooking?.roomId as any)?._id
+      ? (activeBooking?.roomId as any)
+      : rooms.find((room) => {
+          return (
+            room._id === roomIdStr ||
+            room.id === roomIdStr
+          );
+        })) || null;
+
+  // Normalize occupants and filter roommates robustly (handle id string/number and _id fallback)
+  const toIdStr = (v: unknown) => (v == null ? '' : String(v));
+  const normalizedOccupants = Array.isArray(roomOccupants)
+    ? roomOccupants
+    : (roomOccupants?.occupants ?? []);
+  const roommates =
+    normalizedOccupants.filter((occupant: any) => {
+      const occId = toIdStr(occupant?.id ?? occupant?._id);
+      const meId = toIdStr((student as any)?.id ?? (student as any)?._id);
+      return occId !== meId;
+    }) || [];
+
+  // Initial fetches
   useEffect(() => {
     if (user && user.id) {
       dispatch(fetchStudentByIdFresh(user.id));
@@ -47,7 +81,64 @@ const StudentDashboard: React.FC = () => {
     }
   }, [dispatch, user]);
 
-  // Listen for account deactivation
+  // Fresh occupants when roomId becomes known/changes
+  useEffect(() => {
+    if (roomIdStr) {
+      dispatch(fetchRoomOccupantsFresh(roomIdStr));
+    }
+  }, [dispatch, roomIdStr]);
+
+  // Consolidated socket listeners (force fresh reloads)
+  useEffect(() => {
+    if (!socket || !user?.id) return;
+
+    const onRoomAvailabilityChanged = (data: RoomAvailabilityChangedData) => {
+      dispatch(fetchRooms());
+      if (roomIdStr && String(data.roomId) === String(roomIdStr)) {
+        dispatch(fetchRoomOccupantsFresh(roomIdStr));
+      }
+      if (data.available) {
+        toast.success(`Room ${data.roomNumber} is now available!`);
+      }
+    };
+
+    const onBookingStatusUpdated = (data: BookingStatusUpdatedData) => {
+      if (data.studentId === user.id) {
+        toast.success(`Your booking status: ${data.status}`);
+        dispatch(fetchStudentByIdFresh(user.id));
+        if (roomIdStr) {
+          dispatch(fetchRoomOccupantsFresh(roomIdStr));
+        }
+      }
+    };
+
+    const onRoommateUpdated = () => {
+      if (roomIdStr) {
+        dispatch(fetchRoomOccupantsFresh(roomIdStr));
+      }
+    };
+
+    const refreshSettings = () => {
+      invalidateSettingsCache();
+      dispatch(fetchPublicSettings());
+    };
+
+    socket.on('room-availability-changed', onRoomAvailabilityChanged);
+    socket.on('booking-status-updated', onBookingStatusUpdated);
+    socket.on('roommate-updated', onRoommateUpdated);
+    socket.on('settings-updated', refreshSettings);
+    socket.on('portal-status-changed', refreshSettings);
+
+    return () => {
+      socket.off('room-availability-changed', onRoomAvailabilityChanged);
+      socket.off('booking-status-updated', onBookingStatusUpdated);
+      socket.off('roommate-updated', onRoommateUpdated);
+      socket.off('settings-updated', refreshSettings);
+      socket.off('portal-status-changed', refreshSettings);
+    };
+  }, [socket, user?.id, dispatch, roomIdStr]);
+
+  // Listen for account deactivation (kept separate)
   useEffect(() => {
     if (socket && user) {
       socket.on('account-deactivated', (data) => {
@@ -60,99 +151,6 @@ const StudentDashboard: React.FC = () => {
       };
     }
   }, [socket, user, dispatch]);
-
-  // Find active booking for the current student
-  const bookingsList = (student as any)?.Bookings ?? (student as any)?.bookings ?? [];
-  const activeBooking = bookingsList.find((booking: Booking) => booking.status === 'active');
-
-
-
-  // Normalize occupants and filter roommates robustly (handle id string/number and _id fallback)
-const toIdStr = (v: unknown) => (v == null ? '' : String(v));
-const normalizedOccupants = Array.isArray(roomOccupants)
-  ? roomOccupants
-  : (roomOccupants?.occupants ?? []);
-const roommates =
-  normalizedOccupants.filter((occupant: any) => {
-    const occId = toIdStr(occupant?.id ?? occupant?._id);
-    const meId = toIdStr((student as any)?.id ?? (student as any)?._id);
-    return occId !== meId;
-  }) || [];
-
-  // Ensure we always have a string roomId (handles both string ID and populated object)
-  const roomIdStr =
-    typeof activeBooking?.roomId === 'string'
-      ? activeBooking.roomId
-      : (activeBooking?.roomId as any)?._id;
-
-  // If there's an active booking, fetch room occupants
-  useEffect(() => {
-    if (roomIdStr) {
-      dispatch(fetchRoomOccupants(roomIdStr));
-    }
-  }, [dispatch, roomIdStr]);
-
-  // Find room for active booking (use populated object directly if available)
-  const currentRoom =
-    (typeof activeBooking?.roomId === 'object' && (activeBooking?.roomId as any)?._id
-      ? (activeBooking?.roomId as any)
-      : rooms.find((room) => {
-          return (
-            room._id === roomIdStr ||
-            String(room._id) === String(roomIdStr) ||
-            String(room.id) === String(roomIdStr)
-          );
-        })) || null;
-
-  // Socket event listeners
-  useEffect(() => {
-    if (socket) {
-      socket.on('room-availability-changed', (data: RoomAvailabilityChangedData) => {
-        dispatch(fetchRooms());
-        // Also refresh occupants for the currently booked room so roommates stay in sync
-        if (roomIdStr && String(data.roomId) === String(roomIdStr)) {
-          dispatch(fetchRoomOccupants(roomIdStr));
-        }
-        if (data.available) {
-          toast.success(`Room ${data.roomNumber} is now available!`);
-        }
-      });
-
-      socket.on('booking-status-updated', (data: BookingStatusUpdatedData) => {
-        if (data.studentId === user?.id && user?.id) {
-          toast.success(`Your booking status: ${data.status}`);
-          dispatch(fetchStudentByIdFresh(user.id));
-          // Keep roommates updated when your booking status changes
-          if (roomIdStr) {
-            dispatch(fetchRoomOccupants(roomIdStr));
-          }
-        }
-      });
-
-      // New: roommate updates (another student joined/left same room)
-      const onRoommateUpdated = () => {
-        if (roomIdStr) {
-          dispatch(fetchRoomOccupants(roomIdStr));
-        }
-      };
-      socket.on('roommate-updated', onRoommateUpdated);
-
-      const refreshSettings = () => {
-        invalidateSettingsCache();
-        dispatch(fetchPublicSettings());
-      };
-      socket.on('settings-updated', refreshSettings);
-      socket.on('portal-status-changed', refreshSettings);
-
-      return () => {
-        socket.off('room-availability-changed');
-        socket.off('booking-status-updated');
-        socket.off('roommate-updated', onRoommateUpdated);
-        socket.off('settings-updated', refreshSettings);
-        socket.off('portal-status-changed', refreshSettings);
-      };
-    }
-  }, [socket, dispatch, user, roomIdStr]);
 
   if (studentLoading || roomsLoading || settingsLoading) {
     return (
@@ -216,8 +214,6 @@ const roommates =
     { id: 'overview', name: 'Overview', icon: HomeIcon },
     { id: 'roommates', name: 'Roommates', icon: UsersIcon },
   ];
-
-// This roommates declaration was already defined above, so we'll remove this duplicate
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
@@ -389,49 +385,53 @@ const roommates =
                             </Button>
                           </div>
                         )}
-                        </div>
-                      )}
+                      </div>
+                    )}
                   </Card>
                 </div>
               </div>
             )}
 
             {/* Roommates Tab */}
-            {/* Roommates Tab */}
-          {activeTab === 'roommates' && (
-            <div className="space-y-6">
-              {roommates.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {roommates.map((roommate, index) => (
-                    <Card key={roommate.id} className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                            <span className="text-blue-600 dark:text-blue-400 font-medium text-lg">
-                              {roommate.full_name.charAt(0).toUpperCase()}
-                            </span>
+            {activeTab === 'roommates' && (
+              <div className="space-y-6">
+                {roommates.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {roommates.map((roommate: any, index: number) => (
+                      <Card
+                        key={String(roommate.id ?? roommate._id) || `rm-${index}`}
+                        className="p-6"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0">
+                            <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                              <span className="text-blue-600 dark:text-blue-400 font-medium text-lg">
+                                {(roommate.full_name || roommate.fullName || '')?.charAt(0)?.toUpperCase()}
+                              </span>
+                            </div>
                           </div>
+
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {roommate.full_name}
+                              {roommate.full_name || roommate.fullName}
                             </p>
                             <p className="text-sm text-gray-500 dark:text-slate-400 truncate">
                               {roommate.programmeOfStudy}
                             </p>
                             <p className="text-xs text-gray-400 dark:text-slate-500">
-                              Level {roommate.level}
+                              {roommate.level ? `Level ${roommate.level}` : null}
                             </p>
+
+                            {roommate.phoneNumber && (
+                              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
+                                <div className="flex items-center text-sm text-gray-600 dark:text-slate-400">
+                                  <PhoneIcon className="h-4 w-4 mr-2" />
+                                  {roommate.phoneNumber}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        {roommate.phoneNumber && (
-                          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
-                            <div className="flex items-center text-sm text-gray-600 dark:text-slate-400">
-                              <PhoneIcon className="h-4 w-4 mr-2" />
-                              {roommate.phoneNumber}
-                            </div>
-                          </div>
-                        )}
-                       </div> 
                       </Card>
                     ))}
                   </div>
@@ -440,10 +440,9 @@ const roommates =
                     <UsersIcon className="h-12 w-12 text-gray-400 dark:text-slate-500 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Roommates</h3>
                     <p className="text-gray-500 dark:text-slate-400 mb-4">
-                      {!activeBooking 
+                      {!activeBooking
                         ? 'You need to book a room first to see roommates'
-                        : 'You are the only occupant in this room'
-                      }
+                        : 'You are the only occupant in this room'}
                     </p>
                   </div>
                 )}
@@ -457,5 +456,3 @@ const roommates =
 };
 
 export default StudentDashboard;
-
-

@@ -168,8 +168,9 @@ exports.getStudentById = async (req, res) => {
   try {
     const studentId = req.params.id;
     const cacheKey = cacheService.getStudentByIdKey(studentId);
+    const bypass = (req.get('X-Bypass-Cache') === 'true' || req.get('x-bypass-cache') === 'true');
 
-    const student = await cacheService.getOrSet(cacheKey, async () => {
+    const fetchDoc = async () => {
       // Get current academic period
       const academicSettings = await AcademicSettings.getCurrent();
       const { academicYear, semester } = academicSettings.getCurrentPeriod();
@@ -209,19 +210,29 @@ exports.getStudentById = async (req, res) => {
         .populate('roomId', 'roomNumber roomType capacity')
         .sort({ createdAt: -1 });
 
-        // Convert to plain object to safely replace populated array
         const obj = doc.toObject();
         obj.bookings = legacyActive;
         return obj;
       }
 
       return doc;
-    }, cacheService.getTTL('user_profiles'));
-    
+    };
+
+    let student;
+    if (bypass) {
+      student = await fetchDoc();
+      if (student) {
+        // best-effort cache refresh
+        cacheService.set(cacheKey, student, cacheService.getTTL('user_profiles')).catch(() => {});
+      }
+    } else {
+      student = await cacheService.getOrSet(cacheKey, fetchDoc, cacheService.getTTL('user_profiles'));
+    }
+
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
-    
+
     res.json(student);
   } catch (error) {
     console.error('Get student by ID error:', error);

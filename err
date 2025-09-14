@@ -1,0 +1,67 @@
+5:20:02 pm [vite] Internal server error: C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\src\pages\management\student\Dashboard.tsx: Expected corresponding JSX closing tag for <div>. (429:18)
+
+  427 |                           </div>
+  428 |                         )}
+> 429 |                   </Card>
+      |                   ^
+  430 |                 </div>
+  431 |               </div>
+  432 |             )}
+  Plugin: vite:react-babel
+  File: C:/Users/HP/Desktop/Projects/Elite/hostel-page/frontend/src/pages/management/student/Dashboard.tsx:429:18
+  439|                      {roommates.map((roommate: any, index: number) => (
+  440|                        <Card
+  441|                          key={String(roommate.id ?? roommate._id) || `rm-${index}`}
+     |            ^
+  442|                          className="p-6"
+  443|                        >
+      at constructor (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:367:19)
+      at TypeScriptParserMixin.raise (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:6630:19)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4760:16)
+      at TypeScriptParserMixin.jsxParseElement (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4782:17)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4792:19)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:9857:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10899:61)     
+      at TypeScriptParserMixin.parseExprOps (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10904:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10881:23)        
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10831:21)
+      at C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:9795:39
+      at TypeScriptParserMixin.tryParse (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:6938:20)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:9795:18)
+      at C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10800:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:12432:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10800:17)      
+      at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:12499:17)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11679:28)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11331:23)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4797:20)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:9857:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10899:61)     
+      at TypeScriptParserMixin.parseExprOps (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10904:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10881:23)        
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:9806:20)
+      at C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10800:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:12432:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10800:17)      
+      at TypeScriptParserMixin.parseConditional (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10891:30)
+      at TypeScriptParserMixin.parseConditional (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:9631:18)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10885:17)        
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:9806:20)
+      at TypeScriptParserMixin.parseExpressionBase (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10784:23)
+      at C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10780:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:12432:12)
+      at TypeScriptParserMixin.parseExpression (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:10780:17)
+      at TypeScriptParserMixin.jsxParseExpressionContainer (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4665:31)   
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4744:36)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4731:32)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4731:32)
+      at TypeScriptParserMixin.jsxParseElement (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4782:17)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\HP\Desktop\Projects\Elite\hostel-page\frontend\node_modules\@babel\parser\lib\index.js:4792:19)

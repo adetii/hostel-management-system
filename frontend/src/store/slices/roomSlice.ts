@@ -108,6 +108,22 @@ export const fetchRoomOccupants = createAsyncThunk(
   }
 );
 
+// Fresh (bypass cache) occupants fetch
+export const fetchRoomOccupantsFresh = createAsyncThunk(
+  'room/fetchRoomOccupantsFresh',
+  async (roomId: string, { rejectWithValue }) => {
+    try {
+      const path = isObjectId(roomId) ? `/rooms/${roomId}/occupants` : `/rooms/p/${roomId}/occupants`;
+      const response = await cachedGet(path, { headers: { 'X-Bypass-Cache': 'true' } });
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to fetch room occupants'
+      );
+    }
+  }
+);
+
 // Add these new async thunks after the existing ones
 export const createRoom = createAsyncThunk(
   'rooms/createRoom',
@@ -246,6 +262,20 @@ const roomSlice = createSlice({
         state.roomOccupants = action.payload;
       })
       .addCase(fetchRoomOccupants.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+        toast.error(state.error);
+      })
+      // Fresh occupants results update the same target
+      .addCase(fetchRoomOccupantsFresh.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchRoomOccupantsFresh.fulfilled, (state, action) => {
+        state.loading = false;
+        state.roomOccupants = action.payload;
+      })
+      .addCase(fetchRoomOccupantsFresh.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
         toast.error(state.error);
