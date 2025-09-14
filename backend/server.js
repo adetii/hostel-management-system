@@ -83,7 +83,7 @@ if (process.env.NODE_ENV === 'production') {
 // 5) Rate limiter for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 5,
   message: 'Too many requests, please try again later.'
 });
 // Apply rate limiting to both old and new auth routes
