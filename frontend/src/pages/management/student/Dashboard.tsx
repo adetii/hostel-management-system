@@ -65,6 +65,20 @@ const StudentDashboard: React.FC = () => {
   const bookingsList = (student as any)?.Bookings ?? (student as any)?.bookings ?? [];
   const activeBooking = bookingsList.find((booking: Booking) => booking.status === 'active');
 
+
+
+  // Normalize occupants and filter roommates robustly (handle id string/number and _id fallback)
+const toIdStr = (v: unknown) => (v == null ? '' : String(v));
+const normalizedOccupants = Array.isArray(roomOccupants)
+  ? roomOccupants
+  : (roomOccupants?.occupants ?? []);
+const roommates =
+  normalizedOccupants.filter((occupant: any) => {
+    const occId = toIdStr(occupant?.id ?? occupant?._id);
+    const meId = toIdStr((student as any)?.id ?? (student as any)?._id);
+    return occId !== meId;
+  }) || [];
+
   // Ensure we always have a string roomId (handles both string ID and populated object)
   const roomIdStr =
     typeof activeBooking?.roomId === 'string'
@@ -95,6 +109,10 @@ const StudentDashboard: React.FC = () => {
     if (socket) {
       socket.on('room-availability-changed', (data: RoomAvailabilityChangedData) => {
         dispatch(fetchRooms());
+        // Also refresh occupants for the currently booked room so roommates stay in sync
+        if (roomIdStr && String(data.roomId) === String(roomIdStr)) {
+          dispatch(fetchRoomOccupants(roomIdStr));
+        }
         if (data.available) {
           toast.success(`Room ${data.roomNumber} is now available!`);
         }
@@ -104,10 +122,21 @@ const StudentDashboard: React.FC = () => {
         if (data.studentId === user?.id && user?.id) {
           toast.success(`Your booking status: ${data.status}`);
           dispatch(fetchStudentByIdFresh(user.id));
+          // Keep roommates updated when your booking status changes
+          if (roomIdStr) {
+            dispatch(fetchRoomOccupants(roomIdStr));
+          }
         }
       });
 
-      // New: keep settings in sync without bypassing cache
+      // New: roommate updates (another student joined/left same room)
+      const onRoommateUpdated = () => {
+        if (roomIdStr) {
+          dispatch(fetchRoomOccupants(roomIdStr));
+        }
+      };
+      socket.on('roommate-updated', onRoommateUpdated);
+
       const refreshSettings = () => {
         invalidateSettingsCache();
         dispatch(fetchPublicSettings());
@@ -118,11 +147,12 @@ const StudentDashboard: React.FC = () => {
       return () => {
         socket.off('room-availability-changed');
         socket.off('booking-status-updated');
+        socket.off('roommate-updated', onRoommateUpdated);
         socket.off('settings-updated', refreshSettings);
         socket.off('portal-status-changed', refreshSettings);
       };
     }
-  }, [socket, dispatch, user]);
+  }, [socket, dispatch, user, roomIdStr]);
 
   if (studentLoading || roomsLoading || settingsLoading) {
     return (
@@ -187,7 +217,7 @@ const StudentDashboard: React.FC = () => {
     { id: 'roommates', name: 'Roommates', icon: UsersIcon },
   ];
 
-  const roommates = roomOccupants?.occupants?.filter(occupant => occupant.id !== Number(student?.id)) || [];
+// This roommates declaration was already defined above, so we'll remove this duplicate
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
@@ -367,19 +397,19 @@ const StudentDashboard: React.FC = () => {
             )}
 
             {/* Roommates Tab */}
-            {activeTab === 'roommates' && (
-              <div className="space-y-6">
-                {roommates.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {roommates.map((roommate, index) => (
-                      <Card key={roommate.id} className="p-6">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                              <span className="text-blue-600 dark:text-blue-400 font-medium text-lg">
-                                {roommate.full_name.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
+            {/* Roommates Tab */}
+          {activeTab === 'roommates' && (
+            <div className="space-y-6">
+              {roommates.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {roommates.map((roommate, index) => (
+                    <Card key={roommate.id} className="p-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <span className="text-blue-600 dark:text-blue-400 font-medium text-lg">
+                              {roommate.full_name.charAt(0).toUpperCase()}
+                            </span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -401,6 +431,7 @@ const StudentDashboard: React.FC = () => {
                             </div>
                           </div>
                         )}
+                       </div> 
                       </Card>
                     ))}
                   </div>
@@ -426,3 +457,5 @@ const StudentDashboard: React.FC = () => {
 };
 
 export default StudentDashboard;
+
+

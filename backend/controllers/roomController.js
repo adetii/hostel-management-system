@@ -65,10 +65,15 @@ exports.getRoomById = async (req, res) => {
     const cacheKey = cacheService.getRoomByIdKey(roomId);
     
     const room = await cacheService.getOrSet(cacheKey, async () => {
+      // Get current academic period
+      const { AcademicSettings } = require('../models');
+      const academicSettings = await AcademicSettings.getCurrent();
+      const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
       return await Room.findById(roomId)
         .populate({
           path: 'assignments',
-          match: { status: 'active' },
+          match: { status: 'active', academicYear, semester },
           populate: {
             path: 'studentId',
             select: 'fullName programmeOfStudy level'
@@ -76,7 +81,8 @@ exports.getRoomById = async (req, res) => {
         })
         .populate({
           path: 'bookings',
-          select: 'bookingDate status'
+          match: { status: 'active', academicYear, semester },
+          select: 'bookingDate status academicYear semester'
         });
     }, cacheService.getTTL('room_details'));
 
@@ -320,12 +326,49 @@ exports.updateRoomStatus = async (req, res) => {
 // @access  Private
 exports.getAvailableRooms = async (req, res) => {
   try {
-    const rooms = await Room.find({
-      isAvailable: true,
-      $expr: { $lt: ['$currentOccupancy', '$capacity'] }
-    }).sort({ roomNumber: 1 });
+    const { gender } = req.query; // 'male' | 'female' | undefined
 
-    res.json(rooms);
+    // Get current academic period
+    const academicSettings = await AcademicSettings.getCurrent();
+    const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
+    // Base available: as tracked by syncRoomOccupancy
+    const rooms = await Room.find({
+      isAvailable: true
+    })
+      .select('roomNumber roomType capacity currentOccupancy isAvailable publicId status')
+      .sort({ roomNumber: 1 });
+
+    // If no gender filter, return as-is (already period-aware via syncRoomOccupancy)
+    if (!gender || (gender !== 'male' && gender !== 'female')) {
+      return res.json(rooms.filter(r => (r.currentOccupancy ?? 0) < r.capacity));
+    }
+
+    // With gender filter: ensure existing occupants (for current period) match
+    const filtered = [];
+    for (const r of rooms) {
+      const occ = r.currentOccupancy ?? 0;
+      if (occ === 0) {
+        // Empty rooms are okay
+        filtered.push(r);
+        continue;
+      }
+
+      // Check current period occupants' genders
+      const assignments = await RoomAssignment.find({
+        roomId: r._id,
+        status: 'active',
+        academicYear,
+        semester
+      }).populate('studentId', 'gender');
+
+      const conflict = assignments.some(a => a.studentId?.gender !== gender);
+      if (!conflict && occ < r.capacity) {
+        filtered.push(r);
+      }
+    }
+
+    res.json(filtered);
   } catch (error) {
     console.error('Get available rooms error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -338,10 +381,17 @@ exports.getAvailableRooms = async (req, res) => {
 exports.getRoomOccupants = async (req, res) => {
   try {
     const roomId = req.params.id;
+
+    // Get current academic period
+    const { AcademicSettings } = require('../models');
+    const academicSettings = await AcademicSettings.getCurrent();
+    const { academicYear, semester } = academicSettings.getCurrentPeriod();
     
     const assignments = await RoomAssignment.find({
       roomId: roomId,
-      status: 'active'
+      status: 'active',
+      academicYear,
+      semester
     }).populate('studentId', 'fullName email programmeOfStudy level');
 
     const occupants = assignments.map(assignment => assignment.studentId);

@@ -9,14 +9,21 @@ async function syncRoomOccupancy(roomId = null) {
     const filter = roomId ? { _id: roomId } : {};
     const rooms = await Room.find(filter);
 
+    // Get current academic period
+    const { AcademicSettings } = require('../models');
+    const academicSettings = await AcademicSettings.getCurrent();
+    const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
     for (const room of rooms) {
-      // Count active assignments for this room (Mongoose)
+      // Count active assignments for the current academic period
       const activeAssignments = await RoomAssignment.countDocuments({
         roomId: room._id,
-        status: 'active'
+        status: 'active',
+        academicYear,
+        semester
       });
 
-      // Update room occupancy and availability (Mongoose)
+      // Update room occupancy and availability (current term)
       room.currentOccupancy = activeAssignments;
       room.isAvailable = activeAssignments < room.capacity;
       await room.save();

@@ -175,28 +175,34 @@ exports.createBooking = async (req, res) => {
     // Enhanced socket events
     const io = req.app.get('io');
     if (io) {
+      // Re-fetch updated room to emit accurate occupancy/availability
+      const updatedRoom = await Room.findById(roomId)
+        .select('roomNumber capacity currentOccupancy isAvailable publicId')
+        .lean();
+
       io.to('admin-room').emit('new-booking', {
         bookingId: booking._id,
         studentName: currentUser.fullName,
-        roomNumber: room.roomNumber,
+        roomNumber: updatedRoom?.roomNumber || room.roomNumber,
         studentId: req.user.id,
         academicPeriod: `${academicYear} Semester ${semester}`
       });
-      
-      // After creating a booking or changing room availability
-      // Ensure roomPublicId is included where we emit 'room-availability-changed'
-      const roomPublic = await Room.findById(roomId).select('publicId').lean();
+
+      // Emit accurate occupancy/availability change ONCE
       io.emit('room-availability-changed', {
-        roomId: room._id,
-        roomNumber: room.roomNumber,
-        available: room.currentOccupancy + 1 < room.capacity,
-        currentOccupancy: room.currentOccupancy + 1
+        roomId: roomId,
+        roomPublicId: updatedRoom?.publicId,
+        roomNumber: updatedRoom?.roomNumber || room.roomNumber,
+        currentOccupancy: updatedRoom?.currentOccupancy,
+        capacity: updatedRoom?.capacity ?? room.capacity,
+        available: updatedRoom?.isAvailable
       });
-      
+
+      // Notify the booking student
       io.to(`user-${req.user.id}`).emit('booking-confirmed', {
         bookingId: booking._id,
-        roomNumber: room.roomNumber,
-        message: `Successfully booked Room ${room.roomNumber}`
+        roomNumber: updatedRoom?.roomNumber || room.roomNumber,
+        message: `Successfully booked Room ${updatedRoom?.roomNumber || room.roomNumber}`
       });
 
       io.to(`user-${req.user.id}`).emit('booking-status-updated', {
@@ -204,6 +210,29 @@ exports.createBooking = async (req, res) => {
         studentId: req.user.id,
         status: 'active'
       });
+
+      // Notify existing occupants (roommates) for the current academic period
+      const roommateAssignments = await RoomAssignment.find({
+        roomId,
+        status: 'active',
+        academicYear,
+        semester
+      }).select('studentId');
+
+      for (const ra of roommateAssignments) {
+        const sid = ra.studentId?.toString();
+        if (sid && sid !== req.user.id) {
+          io.to(`user-${sid}`).emit('roommate-updated', {
+            roomId,
+            roomNumber: updatedRoom?.roomNumber || room.roomNumber
+          });
+          // Also nudge their dashboard to refetch
+          io.to(`user-${sid}`).emit('booking-status-updated', {
+            studentId: sid,
+            status: 'active'
+          });
+        }
+      }
     }
 
     // Fetch the complete booking with relations for response
@@ -266,12 +295,14 @@ exports.cancelBooking = async (req, res) => {
     booking.cancelledAt = new Date();
     await booking.save();
 
-    // Update room assignment
+    // Update room assignment - limit to the same academic period
     await RoomAssignment.updateMany(
       { 
         roomId: booking.roomId,
         studentId: booking.studentId,
-        status: 'active'
+        status: 'active',
+        academicYear: booking.academicYear,
+        semester: booking.semester
       },
       { status: 'inactive' }
     );
@@ -327,7 +358,9 @@ exports.updateBookingStatus = async (req, res) => {
         { 
           roomId: booking.roomId,
           studentId: booking.studentId,
-          status: 'active'
+          status: 'active',
+          academicYear: booking.academicYear,
+          semester: booking.semester
         },
         { status: 'inactive' }
       );
@@ -412,10 +445,15 @@ exports.updateBookingRoom = async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
-    // Get current occupancy of new room
+    // Get academic period from booking
+    const { academicYear, semester } = booking;
+
+    // Get current occupancy of new room (current academic period only)
     const currentAssignments = await RoomAssignment.countDocuments({
       roomId,
-      status: 'active'
+      status: 'active',
+      academicYear,
+      semester
     });
 
     // Check if new room has capacity
@@ -426,11 +464,13 @@ exports.updateBookingRoom = async (req, res) => {
     // Get student gender for compatibility check
     const student = await User.findById(booking.studentId).select('gender');
 
-    // Check gender compatibility with existing occupants in new room
+    // Check gender compatibility with existing occupants in new room (current period)
     if (currentAssignments > 0) {
       const existingOccupants = await RoomAssignment.find({
         roomId,
-        status: 'active'
+        status: 'active',
+        academicYear,
+        semester
       }).populate('studentId', 'gender');
 
       const hasGenderConflict = existingOccupants.some(
@@ -447,28 +487,34 @@ exports.updateBookingRoom = async (req, res) => {
 
     const oldRoomId = booking.roomId;
 
-    // IMPORTANT: Remove any existing inactive record for this room+student to avoid unique index conflicts
+    // IMPORTANT: Remove any existing inactive record for this room+student in this academic period to avoid unique index conflicts
     await RoomAssignment.deleteMany({
       roomId: oldRoomId,
       studentId: booking.studentId,
-      status: 'inactive'
+      status: 'inactive',
+      academicYear,
+      semester
     });
 
-    // Update room assignment (set active -> inactive)
+    // Update room assignment (set active -> inactive) for this academic period
     await RoomAssignment.updateMany(
       { 
         roomId: oldRoomId,
         studentId: booking.studentId,
-        status: 'active'
+        status: 'active',
+        academicYear,
+        semester
       },
       { status: 'inactive' }
     );
 
-    // Create new active assignment for the new room
+    // Create new active assignment for the new room with academic fields
     await RoomAssignment.create({
       roomId,
       studentId: booking.studentId,
-      status: 'active'
+      status: 'active',
+      academicYear,
+      semester
     });
 
     // Update booking

@@ -138,12 +138,16 @@ exports.getStudents = async (req, res) => {
     const cacheKey = cacheService.getStudentsKey();
 
     const students = await cacheService.getOrSet(cacheKey, async () => {
+      // Get current academic period
+      const academicSettings = await AcademicSettings.getCurrent();
+      const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
       return await User.find({})
         .select('-password')
         .populate({
           path: 'roomAssignments',
-          match: { status: 'active' },
-          select: 'assignedDate roomId',
+          match: { status: 'active', academicYear, semester },
+          select: 'assignedDate roomId academicYear semester',
           populate: {
             path: 'roomId',
             select: 'roomNumber roomType capacity'
@@ -166,11 +170,17 @@ exports.getStudentById = async (req, res) => {
     const cacheKey = cacheService.getStudentByIdKey(studentId);
 
     const student = await cacheService.getOrSet(cacheKey, async () => {
-      return await User.findById(studentId)
+      // Get current academic period
+      const academicSettings = await AcademicSettings.getCurrent();
+      const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
+      // First, try to populate only current active bookings
+      let doc = await User.findById(studentId)
         .select('-password')
         .populate({
           path: 'bookings',
-          select: 'roomId bookingDate status',
+          match: { status: 'active', academicYear, semester },
+          select: 'roomId bookingDate status academicYear semester',
           populate: {
             path: 'roomId',
             select: 'roomNumber roomType capacity'
@@ -178,13 +188,34 @@ exports.getStudentById = async (req, res) => {
         })
         .populate({
           path: 'roomAssignments',
-          match: { status: 'active' },
-          select: 'assignedDate roomId',
+          match: { status: 'active', academicYear, semester },
+          select: 'assignedDate roomId academicYear semester',
           populate: {
             path: 'roomId',
             select: 'roomNumber roomType capacity'
           }
         });
+
+      // If no active bookings found for current period, fallback to legacy active bookings (no academic fields)
+      if (doc && Array.isArray(doc.bookings) && doc.bookings.length === 0) {
+        const legacyActive = await Booking.find({
+          studentId,
+          status: 'active',
+          $or: [
+            { academicYear: { $exists: false } },
+            { semester: { $exists: false } }
+          ]
+        })
+        .populate('roomId', 'roomNumber roomType capacity')
+        .sort({ createdAt: -1 });
+
+        // Convert to plain object to safely replace populated array
+        const obj = doc.toObject();
+        obj.bookings = legacyActive;
+        return obj;
+      }
+
+      return doc;
     }, cacheService.getTTL('user_profiles'));
     
     if (!student) {
@@ -253,11 +284,15 @@ exports.updateStudent = async (req, res) => {
     await student.save();
 
     // Fetch the updated student with populated fields
-    const updatedStudent = await User.findById(req.params.id)
+    const academicSettings = await AcademicSettings.getCurrent();
+    const { academicYear, semester } = academicSettings.getCurrentPeriod();
+
+    let updatedStudent = await User.findById(req.params.id)
       .select('-password')
       .populate({
         path: 'bookings',
-        select: 'roomId bookingDate status',
+        match: { status: 'active', academicYear, semester },
+        select: 'roomId bookingDate status academicYear semester',
         populate: {
           path: 'roomId',
           select: 'roomNumber roomType capacity'
@@ -265,15 +300,33 @@ exports.updateStudent = async (req, res) => {
       })
       .populate({
         path: 'roomAssignments',
-        match: { status: 'active' },
-        select: 'assignedDate roomId',
+        match: { status: 'active', academicYear, semester },
+        select: 'assignedDate roomId academicYear semester',
         populate: {
           path: 'roomId',
           select: 'roomNumber roomType capacity'
         }
       });
 
-    console.log('Updated student from DB:', updatedStudent?.toJSON()); // Debug log
+    // Fallback to legacy active bookings if needed
+    if (updatedStudent && Array.isArray(updatedStudent.bookings) && updatedStudent.bookings.length === 0) {
+      const legacyActive = await Booking.find({
+        studentId: updatedStudent._id,
+        status: 'active',
+        $or: [
+          { academicYear: { $exists: false } },
+          { semester: { $exists: false } }
+        ]
+      })
+      .populate('roomId', 'roomNumber roomType capacity')
+      .sort({ createdAt: -1 });
+
+      const obj = updatedStudent.toObject();
+      obj.bookings = legacyActive;
+      updatedStudent = obj;
+    }
+
+    console.log('Updated student from DB:', updatedStudent?.toJSON ? updatedStudent?.toJSON() : updatedStudent); // Debug log
 
     // Invalidate related caches
     await cacheService.invalidateUserCaches();
