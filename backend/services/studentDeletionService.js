@@ -10,6 +10,7 @@ class StudentDeletionService {
    * @param {object} io - Socket.IO instance for real-time notifications
    * @returns {object} Deletion summary
    */
+  // Method: deleteStudentCompletely(studentId, adminId, io = null)
   static async deleteStudentCompletely(studentId, adminId, io = null) {
     const session = await User.startSession();
     
@@ -32,26 +33,26 @@ class StudentDeletionService {
           actions: []
         };
 
+        // Track affected rooms across bookings and assignments
+        const affectedRoomIds = new Set();
+
         // 2. Handle active bookings
-        const activeBookings = await Booking.find({ 
-          studentId: student._id, 
-          status: 'active' 
-        }).populate('roomId').session(session);
+        const activeBookings = await Booking.find({ studentId: student._id, status: 'active' })
+          .populate('roomId')
+          .session(session);
 
         if (activeBookings.length > 0) {
           console.log(`📋 Found ${activeBookings.length} active bookings to cancel`);
-          
           for (const booking of activeBookings) {
-            // Cancel the booking
             booking.status = 'inactive';
             booking.cancelledAt = new Date();
             booking.cancelledBy = adminId;
             booking.cancellationReason = 'Student account deleted';
             await booking.save({ session });
 
-            // Update room availability
+            // Collect affected room; recompute later after assignment removal
             if (booking.roomId) {
-              await this.updateRoomAvailability(booking.roomId._id, session);
+              affectedRoomIds.add(booking.roomId._id.toString());
               deletionSummary.actions.push(`Cancelled booking in Room ${booking.roomId.roomNumber}`);
             }
           }
@@ -100,17 +101,18 @@ class StudentDeletionService {
         if (roomAssignments.length > 0) {
           console.log(`🏠 Removing ${roomAssignments.length} room assignments`);
           
-          // Collect affected room IDs once
-          const affectedRoomIds = [...new Set(roomAssignments.map(a => a.roomId.toString()))];
+          // Add affected rooms to the same set (no redeclaration)
+          roomAssignments.forEach(a => affectedRoomIds.add(a.roomId.toString()));
 
           // Delete assignments first so occupancy reflects removal
           await RoomAssignment.deleteMany({ studentId: student._id }).session(session);
+          deletionSummary.actions.push(`Removed ${roomAssignments.length} room assignments`);
+        }
 
-          // Recalculate room availability after deletion
-          for (const roomId of affectedRoomIds) {
-            await this.updateRoomAvailability(roomId, session);
-            deletionSummary.actions.push(`Removed assignment from Room ${roomId}`);
-          }
+        // Recalculate room availability after cancellations and assignment removal
+        for (const roomId of affectedRoomIds) {
+          await this.updateRoomAvailability(roomId, session);
+          deletionSummary.actions.push(`Updated occupancy for Room ${roomId}`);
         }
 
         // 5. Delete user account and personal data
@@ -142,31 +144,32 @@ class StudentDeletionService {
   /**
    * Update room availability after booking/assignment removal
    */
+  // Method: updateRoomAvailability(roomId, session)
   static async updateRoomAvailability(roomId, session) {
     try {
       const room = await Room.findById(roomId).session(session);
       if (!room) return;
-
-      // Recalculate current occupancy
-      const currentAssignments = await RoomAssignment.countDocuments({
-        roomId: room._id,
-        status: 'active'
-      }).session(session);
-
-      const currentBookings = await Booking.countDocuments({
-        roomId: room._id,
-        status: 'active'
-      }).session(session);
-
-      const newOccupancy = currentAssignments + currentBookings;
-      
-      // Update room occupancy
+  
+      // Deduplicate occupancy by studentId to avoid double-counting
+      const assignedStudentIds = await RoomAssignment
+        .distinct('studentId', { roomId: room._id, status: 'active' })
+        .session(session);
+  
+      const bookingStudentIdsNoAssignment = await Booking
+        .distinct('studentId', {
+          roomId: room._id,
+          status: 'active',
+          studentId: { $nin: assignedStudentIds }
+        })
+        .session(session);
+  
+      const newOccupancy = assignedStudentIds.length + bookingStudentIdsNoAssignment.length;
+  
       room.currentOccupancy = newOccupancy;
-      room.isAvailable = newOccupancy < room.capacity; // FIX: use isAvailable instead of 'available'
+      room.isAvailable = newOccupancy < room.capacity;
       await room.save({ session });
-
+  
       console.log(`🏠 Updated Room ${room.roomNumber} occupancy: ${newOccupancy}/${room.capacity}`);
-      
       return room;
     } catch (error) {
       console.error('Error updating room availability:', error);

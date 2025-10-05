@@ -93,7 +93,6 @@ app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/auth/verify-email', authLimiter);
 app.use('/api/auth/resend-verification', authLimiter);
-// Add rate limiting for tab-based auth routes
 app.use('/api/tab/*/auth/login', authLimiter);
 app.use('/api/tab/*/auth/register', authLimiter);
 app.use('/api/tab/*/auth/resend-verification', authLimiter);
